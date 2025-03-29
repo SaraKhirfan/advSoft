@@ -1,0 +1,1 @@
+C:\Users\User\StudioProjects\test_sample\build\app\intermediates\cxx\Debug\y264o425\obj\arm64-v8a
