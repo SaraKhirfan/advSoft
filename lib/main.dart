@@ -1,5 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:test_sample/Calculator.dart';
+import 'package:test_sample/Game.dart';
+import 'package:test_sample/MyTasks.dart';
+import 'package:test_sample/Profile.dart';
+import 'package:test_sample/settings.dart';
 import 'finance_tracker.dart';
 import 'home_page.dart';
 import 'custom_theme.dart';
@@ -27,6 +32,11 @@ class MyApp extends StatelessWidget {
           '/login': (context) => const LoginPage(),
           '/signup': (context) => const SignupPage(),
           '/home': (context) => const HomePage(),
+          '/MyTasks':(context) => const MyTasks(),
+          '/Profile':(context) => const ProfilePage(),
+          '/Settings':(context) => const SettingsPage(),
+          '/Calculator':(context)=>const FinancialCalculator(),
+          '/Game':(context)=>const FinancialQuizGame(),
         },
       ),
     );

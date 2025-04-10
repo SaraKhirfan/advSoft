@@ -27,21 +27,7 @@ class WelcomePage extends StatelessWidget {
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 // Logo and Title
-                const Icon(
-                  Icons.account_balance_wallet,
-                  size: 80,
-                  color: Colors.white,
-                ),
-                const SizedBox(height: 24),
-                const Text(
-                  'Finance Tracker',
-                  style: TextStyle(
-                    fontSize: 32,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.white,
-                  ),
-                ),
-                const SizedBox(height: 12),
+                Image.asset('assets/images/fin-track.png', width: 300,),
                 const Text(
                   '',
                   style: TextStyle(

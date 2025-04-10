@@ -50,12 +50,11 @@ class TransactionCard extends StatelessWidget {
 
     return Card(
       elevation: 2,
-      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(15),
       ),
       child: Padding(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(12),
         child: Row(
           children: [
             // Category Icon
@@ -71,7 +70,7 @@ class TransactionCard extends StatelessWidget {
                 size: 28,
               ),
             ),
-            const SizedBox(width: 16),
+            const SizedBox(width: 8),
             // Transaction Details
             Expanded(
               child: Column(
@@ -91,7 +90,7 @@ class TransactionCard extends StatelessWidget {
                         transaction.category,
                         style: TextStyle(
                           color: Colors.grey[600],
-                          fontSize: 14,
+                          fontSize: 12,
                         ),
                       ),
                       const SizedBox(width: 8),
@@ -99,7 +98,7 @@ class TransactionCard extends StatelessWidget {
                         '•',
                         style: TextStyle(
                           color: Colors.grey[600],
-                          fontSize: 14,
+                          fontSize: 12,
                         ),
                       ),
                       const SizedBox(width: 8),
@@ -107,7 +106,7 @@ class TransactionCard extends StatelessWidget {
                         dateFormat.format(transaction.date),
                         style: TextStyle(
                           color: Colors.grey[600],
-                          fontSize: 14,
+                          fontSize: 12,
                         ),
                       ),
                     ],

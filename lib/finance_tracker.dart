@@ -29,13 +29,17 @@ enum ExpenseCategory {
 
 class BudgetRule {
   final BudgetRuleType type;
-  final double totalBudget;
-  final Map<ExpenseCategory, double> _categoryBalances = {};
+  double _totalIncome; // Renamed from totalBudget to better reflect its purpose
+
+  // Fixed budget amounts - only changes when income changes
+  final Map<ExpenseCategory, double> _categoryBudgets = {};
+
+  // Percentages for each category based on rule type
   final Map<ExpenseCategory, double> _categoryPercentages = {};
 
-  BudgetRule(this.type, this.totalBudget) {
+  BudgetRule(this.type, this._totalIncome) {
     _initializePercentages();
-    _initializeBalances();
+    _initializeBudgets();
   }
 
   void _initializePercentages() {
@@ -59,20 +63,26 @@ class BudgetRule {
     }
   }
 
-  void _initializeBalances() {
+  void _initializeBudgets() {
     _categoryPercentages.forEach((category, percentage) {
-      _categoryBalances[category] = totalBudget * percentage;
+      _categoryBudgets[category] = _totalIncome * percentage;
     });
   }
 
+  // Returns the total income
+  double get totalIncome => _totalIncome;
+
+  // Returns the fixed budget amount for a category
   double getCategoryBudget(ExpenseCategory category) {
-    return _categoryBalances[category] ?? 0.0;
+    return _categoryBudgets[category] ?? 0.0;
   }
 
+  // Returns the percentage allocation for a category
   double getCategoryPercentage(ExpenseCategory category) {
     return _categoryPercentages[category] ?? 0.0;
   }
 
+  // Returns the human-readable name for a category
   String getCategoryName(ExpenseCategory category) {
     switch (category) {
       case ExpenseCategory.needs:
@@ -100,6 +110,7 @@ class BudgetRule {
     }
   }
 
+  // Returns a description of the budgeting rule
   String getRuleDescription() {
     switch (type) {
       case BudgetRuleType.rule_503020:
@@ -111,20 +122,23 @@ class BudgetRule {
     }
   }
 
+  // Called when new income is added
   void distributeIncome(double amount) {
+    // Increase total income
+    _totalIncome += amount;
+
+    // Distribute the new income to each category based on percentages
     _categoryPercentages.forEach((category, percentage) {
-      _categoryBalances[category] = (_categoryBalances[category] ?? 0.0) + (amount * percentage);
+      // Add to the budget for this category
+      _categoryBudgets[category] = (_categoryBudgets[category] ?? 0.0) + (amount * percentage);
     });
   }
 
-  bool canDeductFromCategory(ExpenseCategory category, double amount) {
-    return (_categoryBalances[category] ?? 0.0) >= amount;
-  }
-
-  void deductFromCategory(ExpenseCategory category, double amount) {
-    if (_categoryBalances.containsKey(category)) {
-      _categoryBalances[category] = (_categoryBalances[category] ?? 0.0) - amount;
-    }
+  // Check if there's enough available budget (budget - spent) for a transaction
+  bool canDeductFromCategory(ExpenseCategory category, double amount, double currentSpent) {
+    double budget = _categoryBudgets[category] ?? 0.0;
+    double available = budget - currentSpent;
+    return available >= amount;
   }
 }
 
@@ -142,22 +156,22 @@ class Transaction {
     required this.amount,
     required this.description,
     this.expenseCategory,
-    DateTime? date,
+    DateTime? date, required DateTime timestamp,
   }) : date = date ?? DateTime.now();
 }
 
 class FinanceTracker with ChangeNotifier {
-  double _balance = 0.0;
+  double _totalBalance = 0.0;
   final List<Transaction> _transactions = [];
   BudgetRule? _budgetRule;
 
-  double get balance => _balance;
+  double get totalBalance => _totalBalance;
   List<Transaction> get transactions => List.unmodifiable(_transactions);
   BudgetRule? get budgetRule => _budgetRule;
 
   // Set initial budget and create budget rule
   void setInitialBudget(double amount, BudgetRuleType ruleType) {
-    _balance = amount;
+    _totalBalance = amount;
     _budgetRule = BudgetRule(ruleType, amount);
     _transactions.clear();
     notifyListeners();
@@ -167,18 +181,24 @@ class FinanceTracker with ChangeNotifier {
     if (_budgetRule == null) return TransactionResult(success: false);
 
     if (transaction.type == TransactionType.income) {
+      // Handle income transaction
       _budgetRule!.distributeIncome(transaction.amount);
-      _balance += transaction.amount;
+      _totalBalance += transaction.amount;
       _transactions.insert(0, transaction);
       notifyListeners();
       return TransactionResult(success: true);
     } else {
+      // Handle expense transaction
       if (transaction.expenseCategory == null) {
         return TransactionResult(success: false);
       }
 
+      // Get current spent amount for this category
+      double currentSpent = getTotalExpensesByCategory(transaction.expenseCategory!);
+
       // Check if we have enough in the category before allowing the transaction
-      if (!_budgetRule!.canDeductFromCategory(transaction.expenseCategory!, transaction.amount)) {
+      if (!_budgetRule!.canDeductFromCategory(
+          transaction.expenseCategory!, transaction.amount, currentSpent)) {
         String categoryName = _budgetRule!.getCategoryName(transaction.expenseCategory!);
         return TransactionResult(
           success: false,
@@ -188,16 +208,17 @@ class FinanceTracker with ChangeNotifier {
         );
       }
 
-      // Calculate usage percentage after transaction
-      double currentAmount = getExpensesByCategory(transaction.expenseCategory!);
-      double maxAmount = _budgetRule!.getCategoryBudget(transaction.expenseCategory!);
-      double newPercentage = ((currentAmount + transaction.amount) / maxAmount) * 100;
+      // Calculate usage percentage after this transaction
+      double budget = _budgetRule!.getCategoryBudget(transaction.expenseCategory!);
+      double newSpent = currentSpent + transaction.amount;
+      double newPercentage = (newSpent / budget) * 100;
 
-      _budgetRule!.deductFromCategory(transaction.expenseCategory!, transaction.amount);
-      _balance -= transaction.amount;
+      // Add the transaction - no deduction from budget, just add to transactions list
+      _totalBalance -= transaction.amount;
       _transactions.insert(0, transaction);
       notifyListeners();
 
+      // Determine if any alerts should be shown based on budget usage
       String categoryName = _budgetRule!.getCategoryName(transaction.expenseCategory!);
       if (newPercentage >= 90) {
         return TransactionResult(
@@ -219,32 +240,29 @@ class FinanceTracker with ChangeNotifier {
     }
   }
 
+  // Calculate total income
   double get totalIncome => _transactions
       .where((t) => t.type == TransactionType.income)
       .fold(0, (sum, t) => sum + t.amount);
 
+  // Calculate total expenses
   double get totalExpense => _transactions
       .where((t) => t.type == TransactionType.expense)
       .fold(0, (sum, t) => sum + t.amount);
 
-  // Get expenses by category
-  double getExpensesByCategory(ExpenseCategory category) {
-    double totalExpenses = _transactions
-        .where((t) => t.type == TransactionType.expense &&
-        t.expenseCategory == category)
-        .fold(0, (sum, t) => sum + t.amount);
-
-    // Return the remaining budget for this category
-    double categoryBudget = _budgetRule?.getCategoryBudget(category) ?? 0.0;
-    return categoryBudget - totalExpenses;
-  }
-
-  // Get total expenses by category
+  // Get the total spent amount for a specific category
   double getTotalExpensesByCategory(ExpenseCategory category) {
     return _transactions
         .where((t) => t.type == TransactionType.expense &&
         t.expenseCategory == category)
         .fold(0, (sum, t) => sum + t.amount);
+  }
+
+  // Get the available amount for a category (budget - spent)
+  double getAvailableAmountForCategory(ExpenseCategory category) {
+    double budget = _budgetRule?.getCategoryBudget(category) ?? 0.0;
+    double spent = getTotalExpensesByCategory(category);
+    return budget - spent;
   }
 
   // Map transaction category to expense category
@@ -301,24 +319,26 @@ class FinanceTracker with ChangeNotifier {
     }
   }
 
-
-  // Get budget status message
+  // Get budget status message for a category
   String getBudgetStatusMessage(ExpenseCategory category) {
     if (_budgetRule == null) return '';
 
     double budget = _budgetRule!.getCategoryBudget(category);
-    double spent = getExpensesByCategory(category);
+    double spent = getTotalExpensesByCategory(category);
+    double available = budget - spent;
     String categoryName = _budgetRule!.getCategoryName(category);
-    double percentage = (spent / budget) * 100;
 
-    if (percentage >= 100) {
-      return 'You have exceeded your $categoryName budget! Current usage: ${percentage.toStringAsFixed(1)}%';
-    } else if (percentage >= 90) {
-      return 'Warning: You have almost depleted your $categoryName budget. Current usage: ${percentage.toStringAsFixed(1)}%';
-    } else if (percentage >= 75) {
-      return 'Caution: You are using a lot of your $categoryName budget. Current usage: ${percentage.toStringAsFixed(1)}%';
+    // Calculate percentage of budget used
+    double percentageUsed = (spent / budget) * 100;
+
+    if (percentageUsed >= 100) {
+      return 'You have exceeded your $categoryName budget! Current usage: ${percentageUsed.toStringAsFixed(1)}%';
+    } else if (percentageUsed >= 90) {
+      return 'Warning: You have almost depleted your $categoryName budget. Current usage: ${percentageUsed.toStringAsFixed(1)}%';
+    } else if (percentageUsed >= 75) {
+      return 'Caution: You are using a lot of your $categoryName budget. Current usage: ${percentageUsed.toStringAsFixed(1)}%';
     } else {
-      return 'You are managing your $categoryName budget well. Current usage: ${percentage.toStringAsFixed(1)}%';
+      return 'You are managing your $categoryName budget well. Current usage: ${percentageUsed.toStringAsFixed(1)}%';
     }
   }
 }

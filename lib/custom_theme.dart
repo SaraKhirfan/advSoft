@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 class CustomTheme {
   static const Color primaryColor = Color(0xFF004751);
+  static const Color successColor = Color(0xFF004751);
   static const Color primaryLightColor = Color(0xFF006B7A);
   static const Color backgroundColor = Color(0xFFFDFCFD);
   static const Color accentColor = Color(0xFF6DC38D);
@@ -14,6 +15,7 @@ class CustomTheme {
       primaryColor: primaryColor,
       scaffoldBackgroundColor: backgroundColor,
       appBarTheme: const AppBarTheme(
+        iconTheme: IconThemeData(color: Colors.white),
         backgroundColor: primaryColor,
         elevation: 0,
       ),

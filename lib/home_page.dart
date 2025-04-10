@@ -1,8 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:test_sample/MyTasks.dart';
-import 'package:test_sample/Notes_Section.dart';
-import 'package:test_sample/Profile.dart';
+import 'package:test_sample/login_page.dart';
 import 'finance_tracker.dart';
 import 'transaction_card.dart';
 import 'transaction_form.dart';
@@ -137,6 +135,7 @@ class HomePage extends StatelessWidget {
                                 ],
                               );
                           }
+                          return Container(); // Default empty container if no match
                         },
                       ),
                     ),
@@ -253,7 +252,7 @@ class HomePage extends StatelessWidget {
                           return Column(
                             children: [
                               Text(
-                                'JD ${tracker.balance.toStringAsFixed(2)}',
+                                'JD ${tracker.totalBalance.toStringAsFixed(2)}',
                                 style: const TextStyle(
                                   color: Colors.white,
                                   fontSize: 36,
@@ -294,7 +293,7 @@ class HomePage extends StatelessWidget {
                                 _buildSummaryCard(
                                   context,
                                   'Income',
-                                  tracker.totalIncome,
+                                  tracker.totalIncome, // Fixed: use method instead of property
                                   Icons.arrow_upward,
                                   CustomTheme.accentColor,
                                 ),
@@ -302,7 +301,7 @@ class HomePage extends StatelessWidget {
                                 _buildSummaryCard(
                                   context,
                                   'Expense',
-                                  tracker.totalExpense,
+                                  tracker.totalExpense, // Fixed: use method instead of property
                                   Icons.arrow_downward,
                                   CustomTheme.errorColor,
                                 ),
@@ -354,78 +353,170 @@ class HomePage extends StatelessWidget {
                 }
 
                 return SliverToBoxAdapter(
-                  child: Container(
-                    margin: const EdgeInsets.all(16),
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(16),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withOpacity(0.05),
-                          blurRadius: 10,
-                          offset: const Offset(0, 5),
-                        ),
-                      ],
-                    ),
+                  child: Padding(
+                    padding: const EdgeInsets.all(16.0),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            const Text(
+                            Text(
                               'Budget Breakdown',
-                              style: TextStyle(
-                                fontSize: 16,
+                              style: Theme.of(context).textTheme.titleLarge?.copyWith(
                                 fontWeight: FontWeight.bold,
                               ),
                             ),
-                            Flexible(
-                              child: Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 8,
-                                  vertical: 4,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: CustomTheme.primaryColor.withOpacity(0.1),
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                                child: Text(
-                                  ruleText,
-                                  style: const TextStyle(
-                                    fontSize: 12,
-                                    color: CustomTheme.primaryColor,
-                                    fontWeight: FontWeight.w500,
-                                  ),
-                                  overflow: TextOverflow.ellipsis,
+                            Chip(
+                              label: Text(
+                                ruleText,
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 12,
                                 ),
                               ),
+                              backgroundColor: CustomTheme.primaryColor,
                             ),
                           ],
                         ),
                         const SizedBox(height: 16),
-                        ...categories.map((entry) {
-                          final category = entry.key;
-                          final color = entry.value;
-                          final totalExpenses = tracker.getTotalExpensesByCategory(category);
-                          final budget = tracker.budgetRule!.getCategoryBudget(category);
-                          final rulePercentage = (tracker.budgetRule!.getCategoryPercentage(category) * 100).toStringAsFixed(0);
-                          final spentPercentage = (totalExpenses / budget * 100).toStringAsFixed(1);
+                        // Budget breakdown cards with improved layout
+                        ListView.builder(
+                          shrinkWrap: true,
+                          physics: const NeverScrollableScrollPhysics(),
+                          itemCount: categories.length,
+                          itemBuilder: (context, index) {
+                            final category = categories[index].key;
+                            final color = categories[index].value;
+                            final name = tracker.budgetRule!.getCategoryName(category);
+                            final budget = tracker.budgetRule!.getCategoryBudget(category);
+                            final spent = tracker.getTotalExpensesByCategory(category);
+                            final available = budget - spent;
+                            final percentage = spent / budget;
 
-                          return Column(
-                            children: [
-                              _buildBudgetProgressBar(
-                                '${tracker.budgetRule!.getCategoryName(category)} ($rulePercentage% Rule)',
-                                totalExpenses,
-                                budget,
-                                color,
-                                showAvailable: true,
+                            return Card(
+                              margin: const EdgeInsets.only(bottom: 12),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
                               ),
-                              const SizedBox(height: 12),
-                            ],
-                          );
-                        }).toList(),
+                              child: Padding(
+                                padding: const EdgeInsets.all(12),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Row(
+                                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                      children: [
+                                        Text(
+                                          name,
+                                          style: TextStyle(
+                                            fontSize: 16,
+                                            fontWeight: FontWeight.bold,
+                                            color: color,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                    const SizedBox(height: 8),
+                                    LinearProgressIndicator(
+                                      value: percentage.isNaN || percentage.isInfinite ? 0 : percentage,
+                                      backgroundColor: Colors.grey.shade200,
+                                      valueColor: AlwaysStoppedAnimation<Color>(color),
+                                      minHeight: 6,
+                                      borderRadius: BorderRadius.circular(3),
+                                    ),
+                                    const SizedBox(height: 12),
+                                    // Fixed overflow by ensuring flexible text sizing
+                                    Row(
+                                      children: [
+                                        // Budget column
+                                        Expanded(
+                                          child: Column(
+                                            crossAxisAlignment: CrossAxisAlignment.start,
+                                            children: [
+                                              Text(
+                                                'Budget',
+                                                style: TextStyle(
+                                                  fontSize: 12,
+                                                  color: Colors.grey.shade700,
+                                                ),
+                                                overflow: TextOverflow.ellipsis,
+                                              ),
+                                              const SizedBox(height: 2),
+                                              Text(
+                                                'JD ${budget.toStringAsFixed(2)}',
+                                                style: TextStyle(
+                                                  fontSize: 13,
+                                                  fontWeight: FontWeight.w500,
+                                                  color: CustomTheme.textColor,
+                                                ),
+                                                overflow: TextOverflow.ellipsis,
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                        // Spent column
+                                        Expanded(
+                                          child: Column(
+                                            crossAxisAlignment: CrossAxisAlignment.start,
+                                            children: [
+                                              Text(
+                                                'Spent',
+                                                style: TextStyle(
+                                                  fontSize: 12,
+                                                  color: Colors.grey.shade700,
+                                                ),
+                                                overflow: TextOverflow.ellipsis,
+                                              ),
+                                              const SizedBox(height: 2),
+                                              Text(
+                                                'JD ${spent.toStringAsFixed(2)}',
+                                                style: TextStyle(
+                                                  fontSize: 13,
+                                                  fontWeight: FontWeight.w500,
+                                                  color: CustomTheme.errorColor,
+                                                ),
+                                                overflow: TextOverflow.ellipsis,
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                        // Available column
+                                        Expanded(
+                                          child: Column(
+                                            crossAxisAlignment: CrossAxisAlignment.start,
+                                            children: [
+                                              Text(
+                                                'Available',
+                                                style: TextStyle(
+                                                  fontSize: 12,
+                                                  color: Colors.grey.shade700,
+                                                ),
+                                                overflow: TextOverflow.ellipsis,
+                                              ),
+                                              const SizedBox(height: 2),
+                                              Text(
+                                                'JD ${available.toStringAsFixed(2)}',
+                                                style: TextStyle(
+                                                  fontSize: 11,
+                                                  fontWeight: FontWeight.w500,
+                                                  color: available <= 0
+                                                      ? CustomTheme.errorColor
+                                                      : CustomTheme.successColor,
+                                                ),
+                                                overflow: TextOverflow.ellipsis,
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            );
+                          },
+                        ),
                       ],
                     ),
                   ),
@@ -435,23 +526,14 @@ class HomePage extends StatelessWidget {
             },
           ),
 
-          // Transactions List Header
-          SliverPersistentHeader(
-            pinned: true,
-            delegate: _SliverAppBarDelegate(
-              minHeight: 60.0,
-              maxHeight: 60.0,
-              child: Container(
-                color: Theme.of(context).scaffoldBackgroundColor,
-                child: const Padding(
-                  padding: EdgeInsets.fromLTRB(16, 16, 16, 8),
-                  child: Text(
-                    'Recent Transactions',
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
+          // Recent Transactions Header
+          SliverPadding(
+            padding: const EdgeInsets.all(16.0),
+            sliver: SliverToBoxAdapter(
+              child: Text(
+                'Recent Transactions',
+                style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                  fontWeight: FontWeight.bold,
                 ),
               ),
             ),
@@ -461,40 +543,44 @@ class HomePage extends StatelessWidget {
           Consumer<FinanceTracker>(
             builder: (context, tracker, child) {
               if (tracker.transactions.isEmpty) {
-                return SliverFillRemaining(
-                  hasScrollBody: false,
+                return SliverToBoxAdapter(
                   child: Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(
-                          Icons.receipt_long,
-                          size: 64,
-                          color: Colors.grey[400],
-                        ),
-                        const SizedBox(height: 16),
-                        Text(
-                          'No transactions yet',
-                          style: TextStyle(
-                            fontSize: 18,
-                            color: Colors.grey[600],
+                    child: Padding(
+                      padding: const EdgeInsets.all(32.0),
+                      child: Column(
+                        children: [
+                          Icon(
+                            Icons.receipt_long,
+                            size: 64,
+                            color: Colors.grey.shade400,
                           ),
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          'Add your first transaction using the + button',
-                          style: TextStyle(
-                            fontSize: 14,
-                            color: Colors.grey[500],
+                          const SizedBox(height: 16),
+                          Text(
+                            'No transactions yet',
+                            style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.grey.shade600,
+                            ),
                           ),
-                        ),
-                      ],
+                          const SizedBox(height: 8),
+                          Text(
+                            'Add your first transaction by tapping the + button below',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              fontSize: 14,
+                              color: Colors.grey.shade600,
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                 );
               }
+
               return SliverPadding(
-                padding: const EdgeInsets.only(bottom: 80), // Add padding for FAB
+                padding: const EdgeInsets.symmetric(horizontal: 16.0),
                 sliver: SliverList(
                   delegate: SliverChildBuilderDelegate(
                         (context, index) {
@@ -514,6 +600,7 @@ class HomePage extends StatelessWidget {
           showModalBottomSheet(
             context: context,
             isScrollControlled: true,
+            useSafeArea: true,
             shape: const RoundedRectangleBorder(
               borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
             ),
@@ -534,276 +621,134 @@ class HomePage extends StatelessWidget {
       IconData icon,
       Color color,
       ) {
-    return Card(
-      elevation: 0,
-      color: Colors.white.withOpacity(0.1),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        child: Column(
-          children: [
-            Text(
-              title,
-              style: const TextStyle(
-                color: Colors.white70,
-                fontSize: 14,
-              ),
-            ),
-            const SizedBox(height: 4),
-            Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(
+    return Container(
+      width: 150,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.15),
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: color.withOpacity(0.2),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
                   icon,
                   color: color,
                   size: 16,
                 ),
-                const SizedBox(width: 4),
-                Text(
-                  'JD ${amount.toStringAsFixed(2)}',
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ],
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildBudgetProgressBar(
-      String label,
-      double spentAmount,
-      double maxAmount,
-      Color color, {
-        bool showAvailable = false,
-      }) {
-    final bool isExceeded = spentAmount > maxAmount;
-    final double percentage = isExceeded ? 1.0 : (spentAmount / maxAmount);
-    final double available = maxAmount - spentAmount;
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              label,
-              style: TextStyle(
-                fontSize: 14,
-                color: isExceeded ? CustomTheme.errorColor : Colors.black,
-                fontWeight: isExceeded ? FontWeight.bold : FontWeight.normal,
               ),
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-            ),
-            const SizedBox(height: 4),
-            Text(
-              'Spent: JD ${spentAmount.toStringAsFixed(2)} / Budget: JD ${maxAmount.toStringAsFixed(2)}',
-              style: TextStyle(
-                fontSize: 14,
-                color: isExceeded ? CustomTheme.errorColor : Colors.grey[600],
-                fontWeight: isExceeded ? FontWeight.bold : FontWeight.normal,
-              ),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            ),
-            if (showAvailable)
-              Padding(
-                padding: const EdgeInsets.only(top: 4),
-                child: Text(
-                  isExceeded
-                      ? 'Exceeded by: JD ${(spentAmount - maxAmount).toStringAsFixed(2)}'
-                      : 'Available: JD ${available.toStringAsFixed(2)} (${((available/maxAmount) * 100).toStringAsFixed(1)}%)',
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: isExceeded ? CustomTheme.errorColor : color.withOpacity(0.8),
-                    fontWeight: FontWeight.w500,
-                  ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
+              const SizedBox(width: 8),
+              Text(
+                title,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
                 ),
               ),
-          ],
-        ),
-        const SizedBox(height: 8),
-        Stack(
-          children: [
-            // Background
-            Container(
-              height: 8,
-              decoration: BoxDecoration(
-                color: isExceeded ? CustomTheme.errorColor.withOpacity(0.1) : color.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(4),
-              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'JD ${amount.toStringAsFixed(2)}',
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 16,
+              fontWeight: FontWeight.bold,
             ),
-            // Progress
-            FractionallySizedBox(
-              widthFactor: isExceeded ? 1.0 : percentage,
-              child: Container(
-                height: 8,
-                decoration: BoxDecoration(
-                  color: isExceeded ? CustomTheme.errorColor : color,
-                  borderRadius: BorderRadius.circular(4),
-                ),
-              ),
-            ),
-          ],
-        ),
-      ],
-    );
-  }
-}
-
-class _SliverAppBarDelegate extends SliverPersistentHeaderDelegate {
-  final double minHeight;
-  final double maxHeight;
-  final Widget child;
-
-  _SliverAppBarDelegate({
-    required this.minHeight,
-    required this.maxHeight,
-    required this.child,
-  });
-
-  @override
-  double get minExtent => minHeight;
-
-  @override
-  double get maxExtent => maxHeight;
-
-  @override
-  Widget build(BuildContext context, double shrinkOffset, bool overlapsContent) {
-    return SizedBox.expand(child: child);
-  }
-
-  @override
-  bool shouldRebuild(_SliverAppBarDelegate oldDelegate) {
-    return maxHeight != oldDelegate.maxHeight ||
-        minHeight != oldDelegate.minHeight ||
-        child != oldDelegate.child;
-  }
-}
-
-Widget _buildDrawer(BuildContext context) {
-  return Drawer(
-    child: Container(
-      child: ListView(
-        padding: EdgeInsets.zero,
-        children: [
-          DrawerHeader(
-            decoration: BoxDecoration(
-              color: CustomTheme.primaryColor,
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisAlignment: MainAxisAlignment.end,
-              children: [
-                Text(
-                  'Finance Tracker',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 24,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                SizedBox(height: 8),
-                Text(
-                  '',
-                  style: TextStyle(
-                    color: Colors.white70,
-                    fontSize: 14,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          _buildDrawerItem(
-            context,
-            icon: Icons.person,
-            title: 'Profile',
-            onTap: () {
-              Navigator.pop(context);
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (context) => ProfilePage()),
-              );
-            },
-          ),
-          _buildDrawerItem(
-            context,
-            icon: Icons.task_rounded,
-            title: 'To - Do',
-            onTap: () {
-              Navigator.pop(context);
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (context) => MyTasks()),
-              );
-            },
-          ),
-          _buildDrawerItem(
-            context,
-            icon: Icons.note_alt_rounded,
-            title: 'Notes',
-            onTap: () {
-              Navigator.pop(context);
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (context) => NotesSection()),
-              );
-            },
-          ),
-          _buildDrawerItem(
-            context,
-            icon: Icons.history_rounded,
-            title: 'History',
-            onTap: () {
-              Navigator.pop(context);
-            },
-          ),
-          _buildDrawerItem(
-            context,
-            icon: Icons.settings,
-            title: 'Settings',
-            onTap: () {
-              Navigator.pop(context);
-            },
-          ),
-          _buildDrawerItem(
-            context,
-            icon: Icons.logout,
-            title: 'Logout',
-            onTap: () {
-              // Add your logout logic here
-              Navigator.pop(context);
-            },
           ),
         ],
       ),
-    ),
-  );
-}
+    );
+  }
 
-Widget _buildDrawerItem(
-    BuildContext context, {
-      required IconData icon,
-      required String title,
-      required VoidCallback onTap,
-    }) {
-  return ListTile(
-    leading: Icon(icon, color: CustomTheme.primaryColor),
-    title: Text(
-      title,
-      style: TextStyle(
-        fontFamily: 'Poppins',
-        color: CustomTheme.primaryColor,
+  Widget _buildDrawer(BuildContext context) {
+    return Drawer(
+      child: SafeArea(
+        child: ListView(
+          padding: EdgeInsets.zero,
+          children: <Widget>[
+            DrawerHeader(
+              decoration: BoxDecoration(
+                color: CustomTheme.primaryColor,
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Image.asset('assets/images/fin-track.png', width: 150),
+                ],
+              ),
+            ),
+            ListTile(
+              leading: const Icon(Icons.person),
+              title: const Text('Profile'),
+              onTap: () {
+                Navigator.pushNamed(context, '/Profile');
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.task_rounded),
+              title: const Text('To-Do'),
+              onTap: () {
+                Navigator.pushNamed(context, '/MyTasks');
+                // Navigate to analytics page
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.calculate),
+              title: const Text('Calculator'),
+              onTap: () {
+                Navigator.pushNamed(context, '/Calculator');
+                // Navigate to analytics page
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.games),
+              title: const Text('Quiz Game'),
+              onTap: () {
+                Navigator.pushNamed(context, '/Game');
+                // Navigate to analytics page
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.history_rounded),
+              title: const Text('History'),
+              onTap: () {
+                Navigator.pushNamed(context, '/MyTasks');
+                // Navigate to analytics page
+              },
+            ),
+            const Divider(color: Colors.grey, height: 10,),
+            ListTile(
+              leading: const Icon(Icons.settings),
+              title: const Text('Settings'),
+              onTap: () {
+                Navigator.pushNamed(context, '/Settings');
+                // Navigate to settings page
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.help),
+              title: const Text('Logout'),
+              onTap: () {
+                Navigator.pushAndRemoveUntil(
+                  context,
+                  MaterialPageRoute(builder: (context) => LoginPage()),
+                      (route) => false,
+                );
+                // Navigate to help page
+              },
+            ),
+          ],
+        ),
       ),
-    ),
-    onTap: onTap,
-  );
+    );
+  }
 }
