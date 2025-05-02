@@ -15,172 +15,195 @@ class HomePage extends StatelessWidget {
 
     showDialog(
       context: context,
-      builder: (context) => Dialog(
-        child: ConstrainedBox(
-          constraints: BoxConstraints(
-            maxHeight: MediaQuery.of(context).size.height * 0.8,
-          ),
-          child: SingleChildScrollView(
-            child: StatefulBuilder(
-              builder: (context, setState) => Padding(
-                padding: const EdgeInsets.all(16.0),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Row(
-                      children: const [
-                        Icon(Icons.account_balance_wallet, color: CustomTheme.primaryColor),
-                        SizedBox(width: 8),
-                        Text('Set Your Budget'),
-                      ],
-                    ),
-                    const SizedBox(height: 16),
-                    const Text(
-                      'Select a budget rule and enter your total budget:',
-                      style: TextStyle(fontSize: 14),
-                    ),
-                    const SizedBox(height: 16),
-                    // Budget Rule Selection
-                    DropdownButtonFormField<BudgetRuleType>(
-                      value: selectedRule,
-                      decoration: const InputDecoration(
-                        labelText: 'Budget Rule',
-                        prefixIcon: Icon(Icons.rule),
+      builder: (context) =>
+          Dialog(
+            child: ConstrainedBox(
+              constraints: BoxConstraints(
+                maxHeight: MediaQuery
+                    .of(context)
+                    .size
+                    .height * 0.8,
+              ),
+              child: SingleChildScrollView(
+                child: StatefulBuilder(
+                  builder: (context, setState) =>
+                      Padding(
+                        padding: const EdgeInsets.all(16.0),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Row(
+                              children: [
+                                Icon(Icons.account_balance_wallet,
+                                    color: CustomTheme.primaryColor),
+                                SizedBox(width: 8),
+                                Text('Set Your Budget'),
+                              ],
+                            ),
+                            const SizedBox(height: 16),
+                            const Text(
+                              'Select a budget rule and enter your total budget:',
+                              style: TextStyle(fontSize: 14),
+                            ),
+                            const SizedBox(height: 16),
+                            // Budget Rule Selection
+                            DropdownButtonFormField<BudgetRuleType>(
+                              value: selectedRule,
+                              decoration: const InputDecoration(
+                                labelText: 'Budget Rule',
+                                prefixIcon: Icon(Icons.rule, color: Colors.deepPurple,),
+                              ),
+                              items: const [
+                                DropdownMenuItem(
+                                  value: BudgetRuleType.rule_503020,
+                                  child: Row(
+                                    children:  [
+                                      Icon(Icons.pie_chart,
+                                          color: CustomTheme.primaryColor),
+                                      SizedBox(width: 8),
+                                      Text('50/30/20 Rule'),
+                                    ],
+                                  ),
+                                ),
+                                DropdownMenuItem(
+                                  value: BudgetRuleType.rule_702010,
+                                  child: Row(
+                                    children:  [
+                                      Icon(Icons.pie_chart,
+                                          color: CustomTheme.primaryLightColor),
+                                      SizedBox(width: 8),
+                                      Text('70/20/10 Rule'),
+                                    ],
+                                  ),
+                                ),
+                                DropdownMenuItem(
+                                  value: BudgetRuleType.rule_303010,
+                                  child: Row(
+                                    children:  [
+                                      Icon(Icons.pie_chart,
+                                          color: CustomTheme.accentColor),
+                                      SizedBox(width: 8),
+                                      Text('30/30/30/10 Rule'),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                              onChanged: (value) {
+                                if (value != null) {
+                                  setState(() => selectedRule = value);
+                                }
+                              },
+                            ),
+                            const SizedBox(height: 16),
+                            // Rule Description
+                            Container(
+                              padding: const EdgeInsets.all(12),
+                              decoration: BoxDecoration(
+                                color: CustomTheme.primaryColor.withOpacity(0.1),
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: Builder(
+                                builder: (context) {
+                                  switch (selectedRule) {
+                                    case BudgetRuleType.rule_503020:
+                                      return const Column(
+                                        crossAxisAlignment: CrossAxisAlignment
+                                            .start,
+                                        children:  [
+                                          Text(
+                                              '• 50% for needs (essential expenses)',
+                                              style: TextStyle(fontSize: 14)),
+                                          Text(
+                                              '• 30% for wants (discretionary spending)',
+                                              style: TextStyle(fontSize: 14)),
+                                          Text(
+                                              '• 20% for savings & investments',
+                                              style: TextStyle(fontSize: 14)),
+                                        ],
+                                      );
+                                    case BudgetRuleType.rule_702010:
+                                      return const Column(
+                                        crossAxisAlignment: CrossAxisAlignment
+                                            .start,
+                                        children: [
+                                          Text('• 70% for living expenses',
+                                              style: TextStyle(fontSize: 14)),
+                                          Text(
+                                              '• 20% for savings & wealth building',
+                                              style: TextStyle(fontSize: 14)),
+                                          Text(
+                                              '• 10% for debt repayment or charity',
+                                              style: TextStyle(fontSize: 14)),
+                                        ],
+                                      );
+                                    case BudgetRuleType.rule_303010:
+                                      return const Column(
+                                        crossAxisAlignment: CrossAxisAlignment
+                                            .start,
+                                        children: [
+                                          Text('• 30% for housing',
+                                              style: TextStyle(fontSize: 14)),
+                                          Text('• 30% for living expenses',
+                                              style: TextStyle(fontSize: 14)),
+                                          Text('• 30% for financial goals',
+                                              style: TextStyle(fontSize: 14)),
+                                          Text(
+                                              '• 10% for discretionary spending',
+                                              style: TextStyle(fontSize: 14)),
+                                        ],
+                                      );
+                                  }
+                                },
+                              ),
+                            ),
+                            const SizedBox(height: 24),
+                            TextFormField(
+                              controller: budgetController,
+                              keyboardType: const TextInputType
+                                  .numberWithOptions(decimal: true),
+                              decoration: const InputDecoration(
+                                labelText: 'Total Budget',
+                                prefixIcon: Icon(Icons.account_balance_wallet, color: Colors.deepPurple,),
+                                hintText: '0.00',
+                                helperText: 'Enter your total available budget',
+                              ),
+                              autofocus: true,
+                            ),
+                            const SizedBox(height: 24),
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.end,
+                              children: [
+                                TextButton(
+                                  onPressed: () => Navigator.pop(context),
+                                  child: const Text('Cancel', style: TextStyle(color: Colors.deepPurple),),
+                                ),
+                                const SizedBox(width: 8),
+                                ElevatedButton.icon(
+                                  onPressed: () {
+                                    final budget = double.tryParse(
+                                        budgetController.text);
+                                    if (budget != null && budget > 0) {
+                                      Provider.of<FinanceTracker>(
+                                          context, listen: false)
+                                          .setInitialBudget(
+                                          budget, selectedRule);
+                                      Navigator.pop(context);
+                                    }
+                                  },
+                                  style: ElevatedButton.styleFrom(
+                                      backgroundColor: Colors.deepPurple,
+                                      foregroundColor: CustomTheme.primaryColor,),
+                                  label: const Text('Set Budget', style: TextStyle(color: Colors.white),),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
                       ),
-                      items: [
-                        DropdownMenuItem(
-                          value: BudgetRuleType.rule_503020,
-                          child: Row(
-                            children: const [
-                              Icon(Icons.pie_chart, color: CustomTheme.primaryColor),
-                              SizedBox(width: 8),
-                              Text('50/30/20 Rule'),
-                            ],
-                          ),
-                        ),
-                        DropdownMenuItem(
-                          value: BudgetRuleType.rule_702010,
-                          child: Row(
-                            children: const [
-                              Icon(Icons.pie_chart, color: CustomTheme.primaryLightColor),
-                              SizedBox(width: 8),
-                              Text('70/20/10 Rule'),
-                            ],
-                          ),
-                        ),
-                        DropdownMenuItem(
-                          value: BudgetRuleType.rule_303010,
-                          child: Row(
-                            children: const [
-                              Icon(Icons.pie_chart, color: CustomTheme.accentColor),
-                              SizedBox(width: 8),
-                              Text('30/30/30/10 Rule'),
-                            ],
-                          ),
-                        ),
-                      ],
-                      onChanged: (value) {
-                        if (value != null) {
-                          setState(() => selectedRule = value);
-                        }
-                      },
-                    ),
-                    const SizedBox(height: 16),
-                    // Rule Description
-                    Container(
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: CustomTheme.primaryColor.withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Builder(
-                        builder: (context) {
-                          switch (selectedRule) {
-                            case BudgetRuleType.rule_503020:
-                              return Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: const [
-                                  Text('• 50% for needs (essential expenses)',
-                                      style: TextStyle(fontSize: 14)),
-                                  Text('• 30% for wants (discretionary spending)',
-                                      style: TextStyle(fontSize: 14)),
-                                  Text('• 20% for savings & investments',
-                                      style: TextStyle(fontSize: 14)),
-                                ],
-                              );
-                            case BudgetRuleType.rule_702010:
-                              return Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: const [
-                                  Text('• 70% for living expenses',
-                                      style: TextStyle(fontSize: 14)),
-                                  Text('• 20% for savings & wealth building',
-                                      style: TextStyle(fontSize: 14)),
-                                  Text('• 10% for debt repayment or charity',
-                                      style: TextStyle(fontSize: 14)),
-                                ],
-                              );
-                            case BudgetRuleType.rule_303010:
-                              return Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: const [
-                                  Text('• 30% for housing',
-                                      style: TextStyle(fontSize: 14)),
-                                  Text('• 30% for living expenses',
-                                      style: TextStyle(fontSize: 14)),
-                                  Text('• 30% for financial goals',
-                                      style: TextStyle(fontSize: 14)),
-                                  Text('• 10% for discretionary spending',
-                                      style: TextStyle(fontSize: 14)),
-                                ],
-                              );
-                          }
-                          return Container(); // Default empty container if no match
-                        },
-                      ),
-                    ),
-                    const SizedBox(height: 24),
-                    TextFormField(
-                      controller: budgetController,
-                      keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                      decoration: const InputDecoration(
-                        labelText: 'Total Budget',
-                        prefixIcon: Icon(Icons.account_balance_wallet),
-                        hintText: '0.00',
-                        helperText: 'Enter your total available budget',
-                      ),
-                      autofocus: true,
-                    ),
-                    const SizedBox(height: 24),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.end,
-                      children: [
-                        TextButton(
-                          onPressed: () => Navigator.pop(context),
-                          child: const Text('Cancel'),
-                        ),
-                        const SizedBox(width: 8),
-                        ElevatedButton.icon(
-                          onPressed: () {
-                            final budget = double.tryParse(budgetController.text);
-                            if (budget != null && budget > 0) {
-                              Provider.of<FinanceTracker>(context, listen: false)
-                                  .setInitialBudget(budget, selectedRule);
-                              Navigator.pop(context);
-                            }
-                          },
-                          icon: const Icon(Icons.check),
-                          label: const Text('Set Budget'),
-                        ),
-                      ],
-                    ),
-                  ],
                 ),
               ),
             ),
           ),
-        ),
-      ),
     );
   }
 
@@ -197,8 +220,8 @@ class HomePage extends StatelessWidget {
             pinned: true,
             flexibleSpace: FlexibleSpaceBar(
               background: Container(
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
+                decoration: const BoxDecoration(
+                  gradient:  LinearGradient(
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
                     colors: [
@@ -234,11 +257,13 @@ class HomePage extends StatelessWidget {
                                 ),
                                 const SizedBox(height: 8),
                                 ElevatedButton.icon(
-                                  onPressed: () => _showSetBudgetDialog(context),
+                                  onPressed: () =>
+                                      _showSetBudgetDialog(context),
                                   icon: const Icon(Icons.add_circle_outline),
                                   label: const Text('Add Budget'),
                                   style: ElevatedButton.styleFrom(
-                                    backgroundColor: CustomTheme.backgroundColor,
+                                    backgroundColor: CustomTheme
+                                        .backgroundColor,
                                     foregroundColor: CustomTheme.primaryColor,
                                     padding: const EdgeInsets.symmetric(
                                       horizontal: 24,
@@ -252,7 +277,7 @@ class HomePage extends StatelessWidget {
                           return Column(
                             children: [
                               Text(
-                                'JD ${tracker.totalBalance.toStringAsFixed(2)}',
+                                'JOD ${tracker.totalBalance.toStringAsFixed(2)}',
                                 style: const TextStyle(
                                   color: Colors.white,
                                   fontSize: 36,
@@ -262,13 +287,14 @@ class HomePage extends StatelessWidget {
                               const SizedBox(height: 8),
                               TextButton.icon(
                                 onPressed: () => _showSetBudgetDialog(context),
-                                icon: const Icon(Icons.refresh, color: Colors.white70),
+                                icon: const Icon(
+                                    Icons.refresh, color: Colors.white70),
                                 label: const Text(
                                   'Reset Budget',
                                   style: TextStyle(color: Colors.white70),
                                 ),
                                 style: TextButton.styleFrom(
-                                  backgroundColor: Colors.white.withOpacity(0.1),
+                                  backgroundColor: Colors.deepPurple,
                                   padding: const EdgeInsets.symmetric(
                                     horizontal: 16,
                                     vertical: 8,
@@ -293,7 +319,8 @@ class HomePage extends StatelessWidget {
                                 _buildSummaryCard(
                                   context,
                                   'Income',
-                                  tracker.totalIncome, // Fixed: use method instead of property
+                                  tracker.totalIncome,
+                                  // Fixed: use method instead of property
                                   Icons.arrow_upward,
                                   CustomTheme.accentColor,
                                 ),
@@ -301,7 +328,8 @@ class HomePage extends StatelessWidget {
                                 _buildSummaryCard(
                                   context,
                                   'Expense',
-                                  tracker.totalExpense, // Fixed: use method instead of property
+                                  tracker.totalExpense,
+                                  // Fixed: use method instead of property
                                   Icons.arrow_downward,
                                   CustomTheme.errorColor,
                                 ),
@@ -327,26 +355,35 @@ class HomePage extends StatelessWidget {
                 switch (tracker.budgetRule!.type) {
                   case BudgetRuleType.rule_503020:
                     categories.addAll([
-                      MapEntry(ExpenseCategory.needs, CustomTheme.primaryColor),
-                      MapEntry(ExpenseCategory.wants, CustomTheme.primaryLightColor),
-                      MapEntry(ExpenseCategory.savings, CustomTheme.accentColor),
+                      const MapEntry(ExpenseCategory.needs, CustomTheme.primaryColor),
+                      const MapEntry(
+                          ExpenseCategory.wants, CustomTheme.primaryLightColor),
+                      const MapEntry(
+                          ExpenseCategory.savings, CustomTheme.accentColor),
                     ]);
                     ruleText = '50/30/20 Rule';
                     break;
                   case BudgetRuleType.rule_702010:
                     categories.addAll([
-                      MapEntry(ExpenseCategory.living, CustomTheme.primaryColor),
-                      MapEntry(ExpenseCategory.savingsWealth, CustomTheme.primaryLightColor),
-                      MapEntry(ExpenseCategory.debtCharity, CustomTheme.accentColor),
+                      const MapEntry(
+                          ExpenseCategory.living, CustomTheme.primaryColor),
+                      const MapEntry(ExpenseCategory.savingsWealth,
+                          CustomTheme.primaryLightColor),
+                      const MapEntry(
+                          ExpenseCategory.debtCharity, CustomTheme.accentColor),
                     ]);
                     ruleText = '70/20/10 Rule';
                     break;
                   case BudgetRuleType.rule_303010:
                     categories.addAll([
-                      MapEntry(ExpenseCategory.housing, CustomTheme.primaryColor),
-                      MapEntry(ExpenseCategory.livingExpenses, CustomTheme.primaryLightColor),
-                      MapEntry(ExpenseCategory.financialGoals, CustomTheme.accentColor),
-                      MapEntry(ExpenseCategory.discretionary, CustomTheme.primaryColor.withOpacity(0.7)),
+                      const MapEntry(
+                          ExpenseCategory.housing, CustomTheme.primaryColor),
+                      const MapEntry(ExpenseCategory.livingExpenses,
+                          CustomTheme.primaryLightColor),
+                      const MapEntry(ExpenseCategory.financialGoals,
+                          CustomTheme.accentColor),
+                      MapEntry(ExpenseCategory.discretionary,
+                          CustomTheme.primaryColor.withOpacity(0.7)),
                     ]);
                     ruleText = '30/30/30/10 Rule';
                     break;
@@ -363,7 +400,11 @@ class HomePage extends StatelessWidget {
                           children: [
                             Text(
                               'Budget Breakdown',
-                              style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                              style: Theme
+                                  .of(context)
+                                  .textTheme
+                                  .titleLarge
+                                  ?.copyWith(
                                 fontWeight: FontWeight.bold,
                               ),
                             ),
@@ -388,9 +429,12 @@ class HomePage extends StatelessWidget {
                           itemBuilder: (context, index) {
                             final category = categories[index].key;
                             final color = categories[index].value;
-                            final name = tracker.budgetRule!.getCategoryName(category);
-                            final budget = tracker.budgetRule!.getCategoryBudget(category);
-                            final spent = tracker.getTotalExpensesByCategory(category);
+                            final name = tracker.budgetRule!.getCategoryName(
+                                category);
+                            final budget = tracker.budgetRule!
+                                .getCategoryBudget(category);
+                            final spent = tracker.getTotalExpensesByCategory(
+                                category);
                             final available = budget - spent;
                             final percentage = spent / budget;
 
@@ -405,7 +449,8 @@ class HomePage extends StatelessWidget {
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     Row(
-                                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                      mainAxisAlignment: MainAxisAlignment
+                                          .spaceBetween,
                                       children: [
                                         Text(
                                           name,
@@ -419,9 +464,13 @@ class HomePage extends StatelessWidget {
                                     ),
                                     const SizedBox(height: 8),
                                     LinearProgressIndicator(
-                                      value: percentage.isNaN || percentage.isInfinite ? 0 : percentage,
+                                      value: percentage.isNaN ||
+                                          percentage.isInfinite
+                                          ? 0
+                                          : percentage,
                                       backgroundColor: Colors.grey.shade200,
-                                      valueColor: AlwaysStoppedAnimation<Color>(color),
+                                      valueColor: AlwaysStoppedAnimation<Color>(
+                                          color),
                                       minHeight: 6,
                                       borderRadius: BorderRadius.circular(3),
                                     ),
@@ -432,7 +481,8 @@ class HomePage extends StatelessWidget {
                                         // Budget column
                                         Expanded(
                                           child: Column(
-                                            crossAxisAlignment: CrossAxisAlignment.start,
+                                            crossAxisAlignment: CrossAxisAlignment
+                                                .start,
                                             children: [
                                               Text(
                                                 'Budget',
@@ -444,8 +494,9 @@ class HomePage extends StatelessWidget {
                                               ),
                                               const SizedBox(height: 2),
                                               Text(
-                                                'JD ${budget.toStringAsFixed(2)}',
-                                                style: TextStyle(
+                                                'JOD ${budget.toStringAsFixed(
+                                                    2)}',
+                                                style: const TextStyle(
                                                   fontSize: 13,
                                                   fontWeight: FontWeight.w500,
                                                   color: CustomTheme.textColor,
@@ -458,7 +509,8 @@ class HomePage extends StatelessWidget {
                                         // Spent column
                                         Expanded(
                                           child: Column(
-                                            crossAxisAlignment: CrossAxisAlignment.start,
+                                            crossAxisAlignment: CrossAxisAlignment
+                                                .start,
                                             children: [
                                               Text(
                                                 'Spent',
@@ -470,8 +522,9 @@ class HomePage extends StatelessWidget {
                                               ),
                                               const SizedBox(height: 2),
                                               Text(
-                                                'JD ${spent.toStringAsFixed(2)}',
-                                                style: TextStyle(
+                                                'JOD ${spent.toStringAsFixed(
+                                                    2)}',
+                                                style: const TextStyle(
                                                   fontSize: 13,
                                                   fontWeight: FontWeight.w500,
                                                   color: CustomTheme.errorColor,
@@ -484,7 +537,8 @@ class HomePage extends StatelessWidget {
                                         // Available column
                                         Expanded(
                                           child: Column(
-                                            crossAxisAlignment: CrossAxisAlignment.start,
+                                            crossAxisAlignment: CrossAxisAlignment
+                                                .start,
                                             children: [
                                               Text(
                                                 'Available',
@@ -496,13 +550,15 @@ class HomePage extends StatelessWidget {
                                               ),
                                               const SizedBox(height: 2),
                                               Text(
-                                                'JD ${available.toStringAsFixed(2)}',
+                                                'JOD ${available.toStringAsFixed(
+                                                    2)}',
                                                 style: TextStyle(
                                                   fontSize: 11,
                                                   fontWeight: FontWeight.w500,
                                                   color: available <= 0
                                                       ? CustomTheme.errorColor
-                                                      : CustomTheme.successColor,
+                                                      : CustomTheme
+                                                      .successColor,
                                                 ),
                                                 overflow: TextOverflow.ellipsis,
                                               ),
@@ -532,7 +588,11 @@ class HomePage extends StatelessWidget {
             sliver: SliverToBoxAdapter(
               child: Text(
                 'Recent Transactions',
-                style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                style: Theme
+                    .of(context)
+                    .textTheme
+                    .titleLarge
+                    ?.copyWith(
                   fontWeight: FontWeight.bold,
                 ),
               ),
@@ -552,7 +612,7 @@ class HomePage extends StatelessWidget {
                           Icon(
                             Icons.receipt_long,
                             size: 64,
-                            color: Colors.grey.shade400,
+                            color: Colors.deepPurple.shade300,
                           ),
                           const SizedBox(height: 16),
                           Text(
@@ -607,7 +667,7 @@ class HomePage extends StatelessWidget {
             builder: (context) => const TransactionForm(),
           );
         },
-        backgroundColor: CustomTheme.primaryColor,
+        backgroundColor: Colors.deepPurple,
         foregroundColor: Colors.white,
         child: const Icon(Icons.add),
       ),
@@ -629,7 +689,6 @@ class HomePage extends StatelessWidget {
         borderRadius: BorderRadius.circular(16),
       ),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
@@ -656,12 +715,16 @@ class HomePage extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 8),
-          Text(
-            'JD ${amount.toStringAsFixed(2)}',
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 16,
-              fontWeight: FontWeight.bold,
+          // Centered amount text
+          Center(
+            child: Text(
+              'JOD ${amount.toStringAsFixed(2)}',
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+              ),
+              textAlign: TextAlign.center,
             ),
           ),
         ],
@@ -676,7 +739,7 @@ class HomePage extends StatelessWidget {
           padding: EdgeInsets.zero,
           children: <Widget>[
             DrawerHeader(
-              decoration: BoxDecoration(
+              decoration: const BoxDecoration(
                 color: CustomTheme.primaryColor,
               ),
               child: Column(
@@ -687,47 +750,47 @@ class HomePage extends StatelessWidget {
               ),
             ),
             ListTile(
-              leading: const Icon(Icons.person),
-              title: const Text('Profile'),
+              leading: const Icon(Icons.person, color: Colors.deepPurple),
+              title: const Text('My Profile', style: TextStyle(fontFamily: 'Roboto'),),
               onTap: () {
                 Navigator.pushNamed(context, '/Profile');
               },
             ),
             ListTile(
-              leading: const Icon(Icons.task_rounded),
-              title: const Text('To-Do'),
+              leading: const Icon(Icons.task_rounded, color: Colors.deepPurple),
+              title: const Text('My Tasks'),
               onTap: () {
                 Navigator.pushNamed(context, '/MyTasks');
                 // Navigate to analytics page
               },
             ),
             ListTile(
-              leading: const Icon(Icons.calculate),
-              title: const Text('Calculator'),
+              leading: const Icon(Icons.content_paste_search_rounded, color: Colors.deepPurple),
+              title: const Text('Resource Center'),
               onTap: () {
-                Navigator.pushNamed(context, '/Calculator');
+                Navigator.pushNamed(context, '/resource');
                 // Navigate to analytics page
               },
             ),
             ListTile(
-              leading: const Icon(Icons.games),
-              title: const Text('Quiz Game'),
-              onTap: () {
-                Navigator.pushNamed(context, '/Game');
-                // Navigate to analytics page
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.history_rounded),
+              leading: const Icon(Icons.history_rounded, color: Colors.deepPurple),
               title: const Text('History'),
               onTap: () {
-                Navigator.pushNamed(context, '/MyTasks');
+                Navigator.pushNamed(context, '/TransHistory');
                 // Navigate to analytics page
               },
             ),
-            const Divider(color: Colors.grey, height: 10,),
+            Divider( thickness: 0.3),
             ListTile(
-              leading: const Icon(Icons.settings),
+              leading: const Icon(Icons.quiz, color: Colors.deepPurple),
+              title: const Text('Budget Rule Survey'),
+              onTap: () {
+                Navigator.pushNamed(context, '/Survey');
+                // Navigate to analytics page
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.settings, color: Colors.deepPurple),
               title: const Text('Settings'),
               onTap: () {
                 Navigator.pushNamed(context, '/Settings');
@@ -735,12 +798,12 @@ class HomePage extends StatelessWidget {
               },
             ),
             ListTile(
-              leading: const Icon(Icons.help),
+              leading: const Icon(Icons.logout, color: Colors.deepPurple),
               title: const Text('Logout'),
               onTap: () {
                 Navigator.pushAndRemoveUntil(
                   context,
-                  MaterialPageRoute(builder: (context) => LoginPage()),
+                  MaterialPageRoute(builder: (context) => const LoginPage()),
                       (route) => false,
                 );
                 // Navigate to help page

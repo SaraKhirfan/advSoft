@@ -3,24 +3,7 @@ import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 import 'finance_tracker.dart';
 import 'custom_theme.dart';
-import 'transaction_result.dart';
-
-class CategoryItem {
-  final String name;
-  final IconData icon;
-  // Add budget category mapping properties
-  final ExpenseCategory category50_30_20;     // For 50/30/20 rule
-  final ExpenseCategory category70_20_10;     // For 70/20/10 rule
-  final ExpenseCategory category30_30_30_10;  // For 30/30/30/10 rule
-
-  CategoryItem({
-    required this.name,
-    required this.icon,
-    required this.category50_30_20,
-    required this.category70_20_10,
-    required this.category30_30_30_10,
-  });
-}
+import 'package:test_sample/models/transaction_model.dart';
 
 class TransactionForm extends StatefulWidget {
   const TransactionForm({super.key});
@@ -57,7 +40,6 @@ class _TransactionFormState extends State<TransactionForm> with SingleTickerProv
     // Listen to tab changes to handle state properly
     _tabController.addListener(() {
       if (!_tabController.indexIsChanging) {
-        // Ensure we unfocus when switching tabs
         FocusScope.of(context).unfocus();
       }
     });
@@ -126,7 +108,7 @@ class _TransactionFormState extends State<TransactionForm> with SingleTickerProv
     CategoryItem(
       name: 'Salary',
       icon: Icons.payments,
-      category50_30_20: ExpenseCategory.needs,  // Not relevant for income but required
+      category50_30_20: ExpenseCategory.needs,
       category70_20_10: ExpenseCategory.living,
       category30_30_30_10: ExpenseCategory.housing,
     ),
@@ -193,8 +175,6 @@ class _TransactionFormState extends State<TransactionForm> with SingleTickerProv
         return selectedCategory.category70_20_10;
       case BudgetRuleType.rule_303010:
         return selectedCategory.category30_30_30_10;
-      default:
-        return ExpenseCategory.needs; // Default fallback
     }
   }
 
@@ -212,8 +192,8 @@ class _TransactionFormState extends State<TransactionForm> with SingleTickerProv
       builder: (BuildContext context, Widget? child) {
         return Theme(
           data: ThemeData.light().copyWith(
-            colorScheme: ColorScheme.light(
-              primary: CustomTheme.primaryColor,
+            colorScheme: const ColorScheme.light(
+              primary: Colors.deepPurple,
               onPrimary: Colors.white,
               surface: Colors.white,
               onSurface: CustomTheme.textColor,
@@ -249,7 +229,7 @@ class _TransactionFormState extends State<TransactionForm> with SingleTickerProv
             padding: const EdgeInsets.all(16),
             child: Row(
               children: [
-                Icon(Icons.account_balance_wallet, color: CustomTheme.primaryColor),
+                const Icon(Icons.account_balance_wallet, color: Colors.deepPurple),
                 const SizedBox(width: 12),
                 Text(
                   'Budget Breakdown',
@@ -271,23 +251,23 @@ class _TransactionFormState extends State<TransactionForm> with SingleTickerProv
               switch (tracker.budgetRule!.type) {
                 case BudgetRuleType.rule_503020:
                   categories.addAll([
-                    MapEntry(ExpenseCategory.needs, CustomTheme.primaryColor),
-                    MapEntry(ExpenseCategory.wants, CustomTheme.primaryLightColor),
-                    MapEntry(ExpenseCategory.savings, CustomTheme.accentColor),
+                    const MapEntry(ExpenseCategory.needs, CustomTheme.primaryColor),
+                    const MapEntry(ExpenseCategory.wants, CustomTheme.primaryLightColor),
+                    const MapEntry(ExpenseCategory.savings, CustomTheme.accentColor),
                   ]);
                   break;
                 case BudgetRuleType.rule_702010:
                   categories.addAll([
-                    MapEntry(ExpenseCategory.living, CustomTheme.primaryColor),
-                    MapEntry(ExpenseCategory.savingsWealth, CustomTheme.primaryLightColor),
-                    MapEntry(ExpenseCategory.debtCharity, CustomTheme.accentColor),
+                    const MapEntry(ExpenseCategory.living, CustomTheme.primaryColor),
+                    const MapEntry(ExpenseCategory.savingsWealth, CustomTheme.primaryLightColor),
+                    const MapEntry(ExpenseCategory.debtCharity, CustomTheme.accentColor),
                   ]);
                   break;
                 case BudgetRuleType.rule_303010:
                   categories.addAll([
-                    MapEntry(ExpenseCategory.housing, CustomTheme.primaryColor),
-                    MapEntry(ExpenseCategory.livingExpenses, CustomTheme.primaryLightColor),
-                    MapEntry(ExpenseCategory.financialGoals, CustomTheme.accentColor),
+                    const MapEntry(ExpenseCategory.housing, CustomTheme.primaryColor),
+                    const MapEntry(ExpenseCategory.livingExpenses, CustomTheme.primaryLightColor),
+                    const MapEntry(ExpenseCategory.financialGoals, CustomTheme.accentColor),
                     MapEntry(ExpenseCategory.discretionary, CustomTheme.primaryColor.withOpacity(0.7)),
                   ]);
                   break;
@@ -350,7 +330,7 @@ class _TransactionFormState extends State<TransactionForm> with SingleTickerProv
                                       child: Column(
                                         crossAxisAlignment: CrossAxisAlignment.start,
                                         children: [
-                                          Text(
+                                         const Text(
                                             'Budget:',
                                             style: TextStyle(
                                               fontSize: 12,
@@ -358,8 +338,8 @@ class _TransactionFormState extends State<TransactionForm> with SingleTickerProv
                                             ),
                                           ),
                                           Text(
-                                            'JD ${budget.toStringAsFixed(2)}',
-                                            style: TextStyle(
+                                            'JOD ${budget.toStringAsFixed(2)}',
+                                            style: const TextStyle(
                                               fontSize: 13,
                                               fontWeight: FontWeight.w500,
                                               color: CustomTheme.textColor,
@@ -372,7 +352,7 @@ class _TransactionFormState extends State<TransactionForm> with SingleTickerProv
                                       child: Column(
                                         crossAxisAlignment: CrossAxisAlignment.start,
                                         children: [
-                                          Text(
+                                          const Text(
                                             'Spent:',
                                             style: TextStyle(
                                               fontSize: 12,
@@ -380,8 +360,8 @@ class _TransactionFormState extends State<TransactionForm> with SingleTickerProv
                                             ),
                                           ),
                                           Text(
-                                            'JD ${spent.toStringAsFixed(2)}',
-                                            style: TextStyle(
+                                            'JOD ${spent.toStringAsFixed(2)}',
+                                            style: const TextStyle(
                                               fontSize: 13,
                                               fontWeight: FontWeight.w500,
                                               color: CustomTheme.errorColor,
@@ -394,7 +374,7 @@ class _TransactionFormState extends State<TransactionForm> with SingleTickerProv
                                       child: Column(
                                         crossAxisAlignment: CrossAxisAlignment.start,
                                         children: [
-                                          Text(
+                                          const Text(
                                             'Available:',
                                             style: TextStyle(
                                               fontSize: 12,
@@ -402,7 +382,7 @@ class _TransactionFormState extends State<TransactionForm> with SingleTickerProv
                                             ),
                                           ),
                                           Text(
-                                            'JD ${available.toStringAsFixed(2)}',
+                                            'JOD ${available.toStringAsFixed(2)}',
                                             style: TextStyle(
                                               fontSize: 11,
                                               fontWeight: FontWeight.w500,
@@ -443,9 +423,9 @@ class _TransactionFormState extends State<TransactionForm> with SingleTickerProv
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
+          const Text(
             'Select a category',
-            style: TextStyle(
+            style:  TextStyle(
               fontSize: 14,
               fontWeight: FontWeight.bold,
               color: CustomTheme.textColor,
@@ -480,14 +460,14 @@ class _TransactionFormState extends State<TransactionForm> with SingleTickerProv
                   decoration: BoxDecoration(
                     color: isSelected
                         ? (type == TransactionType.expense
-                        ? CustomTheme.errorColor.withOpacity(0.1)
+                        ? Colors.deepPurple.withOpacity(0.1)
                         : CustomTheme.successColor.withOpacity(0.1))
                         : Colors.grey.withOpacity(0.1),
                     borderRadius: BorderRadius.circular(12),
                     border: isSelected
                         ? Border.all(
                       color: type == TransactionType.expense
-                          ? CustomTheme.errorColor
+                          ? Colors.deepPurple
                           : CustomTheme.successColor,
                       width: 2,
                     )
@@ -501,7 +481,7 @@ class _TransactionFormState extends State<TransactionForm> with SingleTickerProv
                         size: 28,
                         color: isSelected
                             ? (type == TransactionType.expense
-                            ? CustomTheme.errorColor
+                              ? Colors.deepPurple
                             : CustomTheme.successColor)
                             : CustomTheme.primaryLightColor,
                       ),
@@ -514,7 +494,7 @@ class _TransactionFormState extends State<TransactionForm> with SingleTickerProv
                           fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
                           color: isSelected
                               ? (type == TransactionType.expense
-                              ? CustomTheme.errorColor
+                              ? Colors.deepPurple
                               : CustomTheme.successColor)
                               : CustomTheme.textColor,
                         ),
@@ -552,11 +532,11 @@ class _TransactionFormState extends State<TransactionForm> with SingleTickerProv
             keyboardType: const TextInputType.numberWithOptions(decimal: true),
             decoration: InputDecoration(
               labelText: 'Amount',
-              prefixText: 'JD ',
+              prefixText: 'JOD ',
               prefixIcon: Icon(
-                Icons.attach_money,
+                Icons.money,
                 color: type == TransactionType.expense
-                    ? CustomTheme.errorColor
+                    ? Colors.deepPurple
                     : CustomTheme.successColor,
               ),
             ),
@@ -590,14 +570,14 @@ class _TransactionFormState extends State<TransactionForm> with SingleTickerProv
                   color: CustomTheme.primaryColor.withOpacity(0.1),
                 ),
               ),
-              child: Row(
+              child: const Row(
                 children: [
                   Icon(
                     Icons.info_outline,
                     color: CustomTheme.primaryColor,
                     size: 20,
                   ),
-                  const SizedBox(width: 12),
+                  SizedBox(width: 12),
                   Expanded(
                     child: Text(
                       'Your selected category will automatically determine which budget section this expense affects.',
@@ -623,8 +603,8 @@ class _TransactionFormState extends State<TransactionForm> with SingleTickerProv
               prefixIcon: Icon(
                 Icons.description,
                 color: type == TransactionType.expense
-                    ? CustomTheme.errorColor
-                    : CustomTheme.successColor,
+                    ? Colors.deepPurple
+                    : CustomTheme.primaryColor,
               ),
             ),
             validator: (value) {
@@ -650,7 +630,7 @@ class _TransactionFormState extends State<TransactionForm> with SingleTickerProv
                   Icon(
                     Icons.calendar_today,
                     color: type == TransactionType.expense
-                        ? CustomTheme.errorColor
+                        ? Colors.deepPurple
                         : CustomTheme.successColor,
                   ),
                   const SizedBox(width: 12),
@@ -666,7 +646,7 @@ class _TransactionFormState extends State<TransactionForm> with SingleTickerProv
                       ),
                       Text(
                         formattedDate,
-                        style: TextStyle(
+                        style: const TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.w500,
                         ),
@@ -689,7 +669,7 @@ class _TransactionFormState extends State<TransactionForm> with SingleTickerProv
           ElevatedButton(
             style: ElevatedButton.styleFrom(
               backgroundColor: type == TransactionType.expense
-                  ? CustomTheme.errorColor
+                  ? Colors.deepPurple
                   : CustomTheme.successColor,
               padding: const EdgeInsets.symmetric(vertical: 16),
               shape: RoundedRectangleBorder(
@@ -724,7 +704,7 @@ class _TransactionFormState extends State<TransactionForm> with SingleTickerProv
                   expenseCategory = _getExpenseCategoryForSelection(selectedCategory, ruleType);
                 }
 
-                final result = await Provider.of<FinanceTracker>(context, listen: false).addTransaction(
+                final result = Provider.of<FinanceTracker>(context, listen: false).addTransaction(
                   Transaction(
                     type: type,
                     category: selectedCategory,
@@ -747,7 +727,7 @@ class _TransactionFormState extends State<TransactionForm> with SingleTickerProv
                         actions: [
                           TextButton(
                             onPressed: () => Navigator.pop(context),
-                            child: Text('OK'),
+                            child: const Text('OK'),
                           ),
                         ],
                       ),
@@ -783,6 +763,7 @@ class _TransactionFormState extends State<TransactionForm> with SingleTickerProv
     );
   }
 
+  @override
   Widget build(BuildContext context) {
     return Padding(
       padding: EdgeInsets.only(
@@ -815,14 +796,12 @@ class _TransactionFormState extends State<TransactionForm> with SingleTickerProv
           Container(
             decoration: BoxDecoration(
               color: Colors.grey.shade100,
-              borderRadius: BorderRadius.circular(8),
             ),
             child: TabBar(
               controller: _tabController,
               indicatorSize: TabBarIndicatorSize.tab,
               indicator: BoxDecoration(
                 color: Colors.white,
-                borderRadius: BorderRadius.circular(8),
                 boxShadow: [
                   BoxShadow(
                     color: Colors.grey.withOpacity(0.2),
@@ -838,7 +817,7 @@ class _TransactionFormState extends State<TransactionForm> with SingleTickerProv
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Icon(Icons.remove_circle_outline, color: CustomTheme.errorColor),
+                      Icon(Icons.remove_circle_outline,  color: Colors.deepPurple),
                       SizedBox(width: 8),
                       Text('Expense'),
                     ],
@@ -848,7 +827,7 @@ class _TransactionFormState extends State<TransactionForm> with SingleTickerProv
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Icon(Icons.add_circle_outline, color: CustomTheme.successColor),
+                      Icon(Icons.add_circle_outline, color: CustomTheme.successColor ),
                       SizedBox(width: 8),
                       Text('Income'),
                     ],

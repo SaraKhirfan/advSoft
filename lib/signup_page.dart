@@ -66,19 +66,14 @@ class _SignupPageState extends State<SignupPage> {
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         // Header
-                        const Icon(
-                          Icons.account_balance_wallet,
-                          size: 64,
-                          color: CustomTheme.primaryColor,
-                        ),
-                        const SizedBox(height: 16),
+                        Image.asset('assets/images/fin_logo.png', width: 200),
                         const Text(
                           'Create Account',
                           style: TextStyle(
                             fontSize: 24,
                             fontWeight: FontWeight.bold,
                             color: CustomTheme.primaryColor,
-                          ),
+                            fontFamily: 'Roboto'),
                         ),
                         const SizedBox(height: 32),
 
@@ -192,9 +187,10 @@ class _SignupPageState extends State<SignupPage> {
                           onPressed: _handleSignup,
                           style: ElevatedButton.styleFrom(
                             padding: const EdgeInsets.symmetric(
-                              horizontal: 48,
+                              horizontal: 100,
                               vertical: 12,
                             ),
+                            backgroundColor: Colors.deepPurple,
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(30),
                             ),
@@ -203,7 +199,6 @@ class _SignupPageState extends State<SignupPage> {
                             mainAxisAlignment: MainAxisAlignment.center,
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              Icon(Icons.person_add),
                               SizedBox(width: 8),
                               Text(
                                 'Sign Up',
@@ -224,10 +219,9 @@ class _SignupPageState extends State<SignupPage> {
                             ),
                             TextButton(
                               onPressed: () {
-                                Navigator.pop(context);
                                 Navigator.pushReplacementNamed(context, '/login');
                               },
-                              child: const Text('Login'),
+                              child: const Text('Login', style: TextStyle(color: Colors.deepPurple),),
                             ),
                           ],
                         ),

@@ -32,8 +32,7 @@ dependencies:
     sdk: flutter
   provider: ^6.0.0
   intl: ^0.18.1
-
-
+  url_launcher: ^6.1.10
 
 
   # The following adds the Cupertino Icons font to your application.
@@ -44,7 +43,12 @@ dependencies:
 dev_dependencies:
   flutter_test:
     sdk: flutter
-  
+  flutter_launcher_icons: ^0.14.3
+
+flutter_icons:
+  android: true
+  ios: true
+  image_path: "assets/images/fin_logo.png"
 
   # The "flutter_lints" package below contains a set of recommended lints to
   # encourage good coding practices. The lint set provided by the package is
@@ -60,6 +64,7 @@ dev_dependencies:
 flutter:
   assets:
     - assets/images/fin-track.png
+    - assets/images/fin_logo.png
 
   # The following line ensures that the Material Icons font is
   # included with your application, so that you can use the icons in
@@ -80,17 +85,28 @@ flutter:
   # "family" key with the font family name, and a "fonts" key with a
   # list giving the asset and other descriptors for the font. For
   # example:
-  # fonts:
-  #   - family: Schyler
-  #     fonts:
-  #       - asset: fonts/Schyler-Regular.ttf
-  #       - asset: fonts/Schyler-Italic.ttf
-  #         style: italic
-  #   - family: Trajan Pro
-  #     fonts:
-  #       - asset: fonts/TrajanPro.ttf
-  #       - asset: fonts/TrajanPro_Bold.ttf
-  #         weight: 700
-  #
+  fonts:
+     - family: Roboto
+       fonts:
+         - asset: assets/fonts/Roboto-Black.ttf
+         - asset: assets/fonts/Roboto-BlackItalic.ttf
+         - asset: assets/fonts/Roboto-Bold.ttf
+         - asset: assets/fonts/Roboto-BoldItalic.ttf
+         - asset: assets/fonts/Roboto-ExtraBold.ttf
+         - asset: assets/fonts/Roboto-ExtraBoldItalic.ttf
+         - asset: assets/fonts/Roboto-ExtraLight.ttf
+         - asset: assets/fonts/Roboto-ExtraLightItalic.ttf
+         - asset: assets/fonts/Roboto-Italic.ttf
+         - asset: assets/fonts/Roboto-Light.ttf
+         - asset: assets/fonts/Roboto-LightItalic.ttf
+         - asset: assets/fonts/Roboto-Medium.ttf
+         - asset: assets/fonts/Roboto-MediumItalic.ttf
+         - asset: assets/fonts/Roboto-Regular.ttf
+         - asset: assets/fonts/Roboto-SemiBold.ttf
+         - asset: assets/fonts/Roboto-SemiBoldItalic.ttf
+         - asset: assets/fonts/Roboto-Thin.ttf
+         - asset: assets/fonts/Roboto-ThinItalic.ttf
+
+
   # For details regarding fonts from package dependencies,
   # see https://flutter.dev/to/font-from-package

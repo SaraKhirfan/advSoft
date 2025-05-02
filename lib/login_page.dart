@@ -60,12 +60,7 @@ class _LoginPageState extends State<LoginPage> {
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         // Header
-                        const Icon(
-                          Icons.account_balance_wallet,
-                          size: 64,
-                          color: CustomTheme.primaryColor,
-                        ),
-                        const SizedBox(height: 16),
+                        Image.asset('assets/images/fin_logo.png', width: 200),
                         const Text(
                           'Log in',
                           style: TextStyle(
@@ -129,7 +124,7 @@ class _LoginPageState extends State<LoginPage> {
                             return null;
                           },
                         ),
-                        const SizedBox(height: 24),
+                        const SizedBox(height: 8),
 
                         // Forgot Password Button
                         Align(
@@ -138,34 +133,27 @@ class _LoginPageState extends State<LoginPage> {
                             onPressed: () {
                               // TODO: Implement forgot password
                             },
-                            child: const Text('Forgot Password?'),
+                            child: const Text('Forgot Password?', style: TextStyle(color: Colors.deepPurple),),
                           ),
                         ),
-                        const SizedBox(height: 24),
+                        const SizedBox(height: 8),
 
-                        // Login Button
-                        ElevatedButton(
-                          onPressed: _handleLogin,
-                          style: ElevatedButton.styleFrom(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 48,
-                              vertical: 12,
+                          ElevatedButton(
+                            onPressed: _handleLogin,
+                            style: ElevatedButton.styleFrom(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 100,
+                                vertical: 12,
+                              ),
+                              backgroundColor: Colors.deepPurple,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(30),
+                              ),
                             ),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(30),
-                            ),
-                          ),
-                          child: const Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(Icons.login),
-                              SizedBox(width: 8),
+                          child:
                               Text(
                                 'Login',
                                 style: TextStyle(fontSize: 18),
-                              ),
-                            ],
                           ),
                         ),
                         const SizedBox(height: 16),
@@ -180,10 +168,9 @@ class _LoginPageState extends State<LoginPage> {
                             ),
                             TextButton(
                               onPressed: () {
-                                Navigator.pop(context);
                                 Navigator.pushReplacementNamed(context, '/signup');
                               },
-                              child: const Text('Sign Up'),
+                              child: const Text('Sign Up', style: TextStyle(color: Colors.deepPurple)),
                             ),
                           ],
                         ),

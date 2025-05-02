@@ -8,7 +8,8 @@ class CustomTheme {
   static const Color accentColor = Color(0xFF6DC38D);
   static const Color textColor = Color(0xFF004751);
   static const Color textLightColor = Color(0xFF6B7280);
-  static const Color errorColor = Color(0xFFDC2626); // Using a refined red color for errors and warnings
+  static const Color errorColor = Color(0xFFDC2626);
+  static const Color purpleColor = Colors.deepPurple;// Using a refined red color for errors and warnings
 
   static ThemeData get theme {
     return ThemeData(

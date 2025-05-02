@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:test_sample/Calculator.dart';
-import 'package:test_sample/Game.dart';
-import 'package:test_sample/MyTasks.dart';
+import 'package:test_sample/my_tasks.dart';
 import 'package:test_sample/Profile.dart';
+import 'package:test_sample/resource_center.dart';
+import 'package:test_sample/Survey.dart';
+import 'package:test_sample/trans_history.dart';
 import 'package:test_sample/settings.dart';
 import 'finance_tracker.dart';
 import 'home_page.dart';
@@ -12,7 +13,8 @@ import 'welcome_page.dart';
 import 'login_page.dart';
 import 'signup_page.dart';
 
-void main() {
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
   runApp(const MyApp());
 }
 
@@ -35,8 +37,9 @@ class MyApp extends StatelessWidget {
           '/MyTasks':(context) => const MyTasks(),
           '/Profile':(context) => const ProfilePage(),
           '/Settings':(context) => const SettingsPage(),
-          '/Calculator':(context)=>const FinancialCalculator(),
-          '/Game':(context)=>const FinancialQuizGame(),
+          '/resource':(context)=>const ResourceCenter(),
+          '/Survey':(context)=>const BudgetSurveyScreen(),
+          '/TransHistory' : (context) => const History(),
         },
       ),
     );

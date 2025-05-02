@@ -7,9 +7,9 @@ class TransactionCard extends StatelessWidget {
   final Transaction transaction;
 
   const TransactionCard({
-    Key? key,
+    super.key,
     required this.transaction,
-  }) : super(key: key);
+  });
 
   IconData _getCategoryIcon() {
     switch (transaction.category.toLowerCase()) {
@@ -45,7 +45,9 @@ class TransactionCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isExpense = transaction.type == TransactionType.expense;
-    final color = isExpense ? Theme.of(context).colorScheme.error : CustomTheme.accentColor;
+
+    // Explicitly use deep purple for expenses and green for income
+    final color = isExpense ? Colors.deepPurple : CustomTheme.accentColor;
     final dateFormat = DateFormat('MMM d, y');
 
     return Card(
@@ -116,7 +118,7 @@ class TransactionCard extends StatelessWidget {
             ),
             // Amount
             Text(
-              '${isExpense ? '-' : '+'}JD ${transaction.amount.toStringAsFixed(2)}',
+              '${isExpense ? '-' : '+'}JOD ${transaction.amount.toStringAsFixed(2)}',
               style: TextStyle(
                 color: color,
                 fontWeight: FontWeight.bold,
