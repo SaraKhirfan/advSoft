@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'custom_theme.dart';
-import 'home_page.dart';
+import '../services/auth_service.dart';
 
 class SignupPage extends StatefulWidget {
   const SignupPage({super.key});
@@ -17,6 +18,10 @@ class _SignupPageState extends State<SignupPage> {
   final _confirmPasswordController = TextEditingController();
   bool _obscurePassword = true;
   bool _obscureConfirmPassword = true;
+  bool _isLoading = false;
+
+  // Create an instance of AuthService
+  final AuthService _authService = AuthService();
 
   @override
   void dispose() {
@@ -27,11 +32,57 @@ class _SignupPageState extends State<SignupPage> {
     super.dispose();
   }
 
-  void _handleSignup() {
+  void _handleSignup() async {
     if (_formKey.currentState!.validate()) {
-      // TODO: Implement actual signup logic
-      // For now, just navigate to home page
-      Navigator.pushReplacementNamed(context, '/home');
+      setState(() {
+        _isLoading = true;
+      });
+
+      try {
+        // Use the auth service to sign up
+        final userCredential = await _authService.signUpWithEmailPassword(
+          name: _nameController.text.trim(),
+          email: _emailController.text.trim(),
+          password: _passwordController.text,
+        );
+
+        print("Authentication successful! User ID: ${userCredential.user?.uid}");
+
+        // Navigation after successful signup - using more aggressive navigation
+        if (!mounted) return;
+        Navigator.of(context).pushNamedAndRemoveUntil('/home', (route) => false);
+      } on FirebaseAuthException catch (e) {
+        // Handle specific Firebase Auth errors
+        String errorMessage = 'An error occurred during signup';
+
+        if (e.code == 'weak-password') {
+          errorMessage = 'The password provided is too weak';
+        } else if (e.code == 'email-already-in-use') {
+          errorMessage = 'The account already exists for that email';
+        } else if (e.code == 'invalid-email') {
+          errorMessage = 'The email address is not valid';
+        } else if (e.code == 'operation-not-allowed') {
+          errorMessage = 'Email/password accounts are not enabled';
+        }
+
+        // Show error message
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(errorMessage), backgroundColor: Colors.red),
+        );
+      } catch (e) {
+        // Handle general errors
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error: ${e.toString()}'), backgroundColor: Colors.red),
+        );
+      } finally {
+        if (mounted) {
+          setState(() {
+            _isLoading = false;
+          });
+        }
+      }
     }
   }
 
@@ -70,10 +121,10 @@ class _SignupPageState extends State<SignupPage> {
                         const Text(
                           'Create Account',
                           style: TextStyle(
-                            fontSize: 24,
-                            fontWeight: FontWeight.bold,
-                            color: CustomTheme.primaryColor,
-                            fontFamily: 'Roboto'),
+                              fontSize: 24,
+                              fontWeight: FontWeight.bold,
+                              color: CustomTheme.primaryColor,
+                              fontFamily: 'Roboto'),
                         ),
                         const SizedBox(height: 32),
 
@@ -184,7 +235,7 @@ class _SignupPageState extends State<SignupPage> {
 
                         // Sign Up Button
                         ElevatedButton(
-                          onPressed: _handleSignup,
+                          onPressed: _isLoading ? null : _handleSignup,
                           style: ElevatedButton.styleFrom(
                             padding: const EdgeInsets.symmetric(
                               horizontal: 100,
@@ -195,7 +246,16 @@ class _SignupPageState extends State<SignupPage> {
                               borderRadius: BorderRadius.circular(30),
                             ),
                           ),
-                          child: const Row(
+                          child: _isLoading
+                              ? const SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(
+                              color: Colors.white,
+                              strokeWidth: 2,
+                            ),
+                          )
+                              : const Row(
                             mainAxisAlignment: MainAxisAlignment.center,
                             mainAxisSize: MainAxisSize.min,
                             children: [

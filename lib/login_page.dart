@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'custom_theme.dart';
 import 'home_page.dart';
+import '../services/auth_service.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -14,6 +16,10 @@ class _LoginPageState extends State<LoginPage> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   bool _obscurePassword = true;
+  bool _isLoading = false;
+
+  // Create an instance of AuthService
+  final AuthService _authService = AuthService();
 
   @override
   void dispose() {
@@ -22,10 +28,96 @@ class _LoginPageState extends State<LoginPage> {
     super.dispose();
   }
 
-  void _handleLogin() {
+  void _handleLogin() async {
     if (_formKey.currentState!.validate()) {
-      // TODO: Implement actual login logic
-      Navigator.pushReplacementNamed(context, '/home');
+      setState(() {
+        _isLoading = true;
+      });
+
+      try {
+        // Use the auth service to sign in
+        final userCredential = await _authService.signInWithEmailPassword(
+          email: _emailController.text.trim(),
+          password: _passwordController.text,
+        );
+
+        print("Login successful! User ID: ${userCredential.user?.uid}");
+
+        // Navigate to home page after successful login
+        if (!mounted) return;
+        Navigator.of(context).pushNamedAndRemoveUntil('/home', (route) => false);
+      } on FirebaseAuthException catch (e) {
+        // Handle specific Firebase Auth errors
+        String errorMessage = 'Login failed';
+
+        if (e.code == 'user-not-found') {
+          errorMessage = 'No user found for that email';
+        } else if (e.code == 'wrong-password') {
+          errorMessage = 'Wrong password provided';
+        } else if (e.code == 'invalid-email') {
+          errorMessage = 'The email address is not valid';
+        } else if (e.code == 'user-disabled') {
+          errorMessage = 'This user has been disabled';
+        }
+
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(errorMessage), backgroundColor: Colors.red),
+        );
+      } catch (e) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error: ${e.toString()}'), backgroundColor: Colors.red),
+        );
+      } finally {
+        if (mounted) {
+          setState(() {
+            _isLoading = false;
+          });
+        }
+      }
+    }
+  }
+
+  void _handleForgotPassword() async {
+    if (_emailController.text.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please enter your email address first'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
+    setState(() {
+      _isLoading = true;
+    });
+
+    try {
+      await _authService.resetPassword(_emailController.text.trim());
+
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Password reset email sent. Check your inbox.'),
+          backgroundColor: Colors.green,
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error: ${e.toString()}'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
     }
   }
 
@@ -130,30 +222,36 @@ class _LoginPageState extends State<LoginPage> {
                         Align(
                           alignment: Alignment.centerRight,
                           child: TextButton(
-                            onPressed: () {
-                              // TODO: Implement forgot password
-                            },
+                            onPressed: _isLoading ? null : _handleForgotPassword,
                             child: const Text('Forgot Password?', style: TextStyle(color: Colors.deepPurple),),
                           ),
                         ),
                         const SizedBox(height: 8),
 
-                          ElevatedButton(
-                            onPressed: _handleLogin,
-                            style: ElevatedButton.styleFrom(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 100,
-                                vertical: 12,
-                              ),
-                              backgroundColor: Colors.deepPurple,
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(30),
-                              ),
+                        ElevatedButton(
+                          onPressed: _isLoading ? null : _handleLogin,
+                          style: ElevatedButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 100,
+                              vertical: 12,
                             ),
-                          child:
-                              Text(
-                                'Login',
-                                style: TextStyle(fontSize: 18),
+                            backgroundColor: Colors.deepPurple,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(30),
+                            ),
+                          ),
+                          child: _isLoading
+                              ? const SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(
+                              color: Colors.white,
+                              strokeWidth: 2,
+                            ),
+                          )
+                              : const Text(
+                            'Login',
+                            style: TextStyle(fontSize: 18),
                           ),
                         ),
                         const SizedBox(height: 16),

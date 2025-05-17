@@ -3,7 +3,9 @@ import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 import 'finance_tracker.dart';
 import 'custom_theme.dart';
-import 'package:test_sample/models/transaction_model.dart';
+import 'package:test_sample/models/category_item.dart';
+import '../services/transaction_service.dart';
+import '../services/firebase_service.dart';
 
 class TransactionForm extends StatefulWidget {
   const TransactionForm({super.key});
@@ -44,6 +46,7 @@ class _TransactionFormState extends State<TransactionForm> with SingleTickerProv
       }
     });
   }
+
 
   final List<CategoryItem> _expenseCategories = [
     CategoryItem(
@@ -330,69 +333,42 @@ class _TransactionFormState extends State<TransactionForm> with SingleTickerProv
                                       child: Column(
                                         crossAxisAlignment: CrossAxisAlignment.start,
                                         children: [
-                                         const Text(
-                                            'Budget:',
+                                          Text(
+                                            'Budget: JOD ${budget.toStringAsFixed(2)}',
                                             style: TextStyle(
                                               fontSize: 12,
-                                              color: CustomTheme.primaryLightColor,
+                                              color: isSelectedForExpense ? color : Colors.grey[600],
                                             ),
                                           ),
                                           Text(
-                                            'JOD ${budget.toStringAsFixed(2)}',
-                                            style: const TextStyle(
-                                              fontSize: 13,
-                                              fontWeight: FontWeight.w500,
-                                              color: CustomTheme.textColor,
+                                            'Spent: JOD ${spent.toStringAsFixed(2)}',
+                                            style: TextStyle(
+                                              fontSize: 12,
+                                              color: isSelectedForExpense ? color : Colors.grey[600],
                                             ),
                                           ),
                                         ],
                                       ),
                                     ),
-                                    Expanded(
-                                      child: Column(
-                                        crossAxisAlignment: CrossAxisAlignment.start,
-                                        children: [
-                                          const Text(
-                                            'Spent:',
-                                            style: TextStyle(
-                                              fontSize: 12,
-                                              color: CustomTheme.primaryLightColor,
-                                            ),
+                                    Column(
+                                      crossAxisAlignment: CrossAxisAlignment.end,
+                                      children: [
+                                        Text(
+                                          'Available',
+                                          style: TextStyle(
+                                            fontSize: 12,
+                                            color: isSelectedForExpense ? color : Colors.grey[600],
                                           ),
-                                          Text(
-                                            'JOD ${spent.toStringAsFixed(2)}',
-                                            style: const TextStyle(
-                                              fontSize: 13,
-                                              fontWeight: FontWeight.w500,
-                                              color: CustomTheme.errorColor,
-                                            ),
+                                        ),
+                                        Text(
+                                          'JOD ${available.toStringAsFixed(2)}',
+                                          style: TextStyle(
+                                            fontSize: 14,
+                                            fontWeight: FontWeight.bold,
+                                            color: isSelectedForExpense ? color : (available < 0 ? Colors.red : CustomTheme.textColor),
                                           ),
-                                        ],
-                                      ),
-                                    ),
-                                    Expanded(
-                                      child: Column(
-                                        crossAxisAlignment: CrossAxisAlignment.start,
-                                        children: [
-                                          const Text(
-                                            'Available:',
-                                            style: TextStyle(
-                                              fontSize: 12,
-                                              color: CustomTheme.primaryLightColor,
-                                            ),
-                                          ),
-                                          Text(
-                                            'JOD ${available.toStringAsFixed(2)}',
-                                            style: TextStyle(
-                                              fontSize: 11,
-                                              fontWeight: FontWeight.w500,
-                                              color: available <= 0
-                                                  ? CustomTheme.errorColor
-                                                  : CustomTheme.successColor,
-                                            ),
-                                          ),
-                                        ],
-                                      ),
+                                        ),
+                                      ],
                                     ),
                                   ],
                                 ),
@@ -481,7 +457,7 @@ class _TransactionFormState extends State<TransactionForm> with SingleTickerProv
                         size: 28,
                         color: isSelected
                             ? (type == TransactionType.expense
-                              ? Colors.deepPurple
+                            ? Colors.deepPurple
                             : CustomTheme.successColor)
                             : CustomTheme.primaryLightColor,
                       ),
@@ -561,8 +537,7 @@ class _TransactionFormState extends State<TransactionForm> with SingleTickerProv
           if (type == TransactionType.expense)
             Container(
               padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
-              margin: const EdgeInsets.only(bottom:
-              16),
+              margin: const EdgeInsets.only(bottom: 16),
               decoration: BoxDecoration(
                 color: CustomTheme.primaryColor.withOpacity(0.05),
                 borderRadius: BorderRadius.circular(8),
@@ -691,39 +666,91 @@ class _TransactionFormState extends State<TransactionForm> with SingleTickerProv
 
                 final amount = double.parse(_amountController.text);
                 final description = _descriptionController.text.trim();
-
-                // Get appropriate date based on transaction type
-                final timestamp = type == TransactionType.expense
+                final selectedDate = type == TransactionType.expense
                     ? _selectedExpenseDate
                     : _selectedIncomeDate;
 
                 // For expenses, need to map to the correct budget category
                 ExpenseCategory? expenseCategory;
-                if (type == TransactionType.expense && Provider.of<FinanceTracker>(context, listen: false).budgetRule != null) {
+                if (type == TransactionType.expense &&
+                    Provider.of<FinanceTracker>(context, listen: false).budgetRule != null) {
                   final ruleType = Provider.of<FinanceTracker>(context, listen: false).budgetRule!.type;
                   expenseCategory = _getExpenseCategoryForSelection(selectedCategory, ruleType);
                 }
 
-                final result = Provider.of<FinanceTracker>(context, listen: false).addTransaction(
-                  Transaction(
-                    type: type,
-                    category: selectedCategory,
-                    expenseCategory: expenseCategory,
-                    amount: amount,
-                    description: description,
-                    timestamp: timestamp,
+                // Create transaction object
+                final transaction = Transaction(
+                  type: type,
+                  category: selectedCategory,
+                  amount: amount,
+                  description: description,
+                  expenseCategory: expenseCategory,
+                  date: selectedDate,
+                  timestamp: DateTime.now(),
+                );
+
+                // Show loading indicator
+                showDialog(
+                  context: context,
+                  barrierDismissible: false,
+                  builder: (context) => const Center(
+                    child: CircularProgressIndicator(),
                   ),
                 );
 
-                if (mounted) {
-                  Navigator.pop(context);
+                try {
+                  // Add transaction through FinanceTracker (handles both local state and Firebase)
+                  final result = await Provider.of<FinanceTracker>(context, listen: false)
+                      .addTransaction(transaction);
 
-                  if (!result.success && result.alertMessage != null) {
+                  // Close loading dialog
+                  if (mounted) Navigator.pop(context);
+
+                  // Close form
+                  if (mounted) Navigator.pop(context);
+
+                  // Show alerts if needed
+                  if (mounted && !result.success && result.alertMessage != null) {
                     showDialog(
                       context: context,
                       builder: (context) => AlertDialog(
                         title: Text(type == TransactionType.expense ? 'Expense Error' : 'Income Error'),
                         content: Text(result.alertMessage!),
+                        actions: [
+                          TextButton(
+                            onPressed: () => Navigator.pop(context),
+                            child: const Text('OK'),
+                          ),
+                        ],
+                      ),
+                    );
+                  } else if (mounted && result.showAlert && result.alertMessage != null) {
+                    // Budget alert
+                    showDialog(
+                      context: context,
+                      builder: (context) => AlertDialog(
+                        title: Text('Budget Alert for ${result.categoryName}'),
+                        content: Text(result.alertMessage!),
+                        actions: [
+                          TextButton(
+                            onPressed: () => Navigator.pop(context),
+                            child: const Text('OK'),
+                          ),
+                        ],
+                      ),
+                    );
+                  }
+                } catch (e) {
+                  // Close loading dialog
+                  if (mounted) Navigator.pop(context);
+
+                  // Show error dialog
+                  if (mounted) {
+                    showDialog(
+                      context: context,
+                      builder: (context) => AlertDialog(
+                        title: const Text('Error'),
+                        content: Text('Failed to add transaction: $e'),
                         actions: [
                           TextButton(
                             onPressed: () => Navigator.pop(context),
@@ -755,9 +782,6 @@ class _TransactionFormState extends State<TransactionForm> with SingleTickerProv
               ],
             ),
           ),
-
-          // Added extra spacing after the button
-          const SizedBox(height: 24),
         ],
       ),
     );
@@ -765,92 +789,32 @@ class _TransactionFormState extends State<TransactionForm> with SingleTickerProv
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: EdgeInsets.only(
-        bottom: MediaQuery.of(context).viewInsets.bottom,
-        left: 16,
-        right: 16,
-        top: 16,
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Add Transaction', style: TextStyle(color: Colors.white),),
+        bottom: TabBar(
+          controller: _tabController,
+          labelColor: Colors.white,
+          unselectedLabelColor: Colors.white70,
+          indicatorColor: Colors.white,
+          tabs: const [
+            Tab(text: 'EXPENSE'),
+            Tab(text: 'INCOME'),
+          ],
+        ),
       ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
+      body: TabBarView(
+        controller: _tabController,
         children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                'Add Transaction',
-                style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                  fontWeight: FontWeight.bold,
-                  color: CustomTheme.textColor,
-                ),
-              ),
-              IconButton(
-                icon: const Icon(Icons.close),
-                onPressed: () => Navigator.pop(context),
-              ),
-            ],
+          // Expense Form
+          SingleChildScrollView(
+            padding: const EdgeInsets.all(16),
+            child: _buildTransactionForm(TransactionType.expense),
           ),
-          const SizedBox(height: 16),
-          Container(
-            decoration: BoxDecoration(
-              color: Colors.grey.shade100,
-            ),
-            child: TabBar(
-              controller: _tabController,
-              indicatorSize: TabBarIndicatorSize.tab,
-              indicator: BoxDecoration(
-                color: Colors.white,
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.grey.withOpacity(0.2),
-                    blurRadius: 4,
-                    offset: const Offset(0, 2),
-                  ),
-                ],
-              ),
-              labelColor: CustomTheme.primaryColor,
-              unselectedLabelColor: Colors.grey.shade700,
-              tabs: const [
-                Tab(
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(Icons.remove_circle_outline,  color: Colors.deepPurple),
-                      SizedBox(width: 8),
-                      Text('Expense'),
-                    ],
-                  ),
-                ),
-                Tab(
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(Icons.add_circle_outline, color: CustomTheme.successColor ),
-                      SizedBox(width: 8),
-                      Text('Income'),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 24),
-          Expanded(
-            child: TabBarView(
-              controller: _tabController,
-              children: [
-                // Expense Form
-                SingleChildScrollView(
-                  child: _buildTransactionForm(TransactionType.expense),
-                ),
-                // Income Form
-                SingleChildScrollView(
-                  child: _buildTransactionForm(TransactionType.income),
-                ),
-              ],
-            ),
+          // Income Form
+          SingleChildScrollView(
+            padding: const EdgeInsets.all(16),
+            child: _buildTransactionForm(TransactionType.income),
           ),
         ],
       ),

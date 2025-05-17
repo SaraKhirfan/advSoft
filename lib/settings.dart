@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'custom_theme.dart';
+import 'services/firebase_service.dart';
 
 class SettingsPage extends StatefulWidget {
   const SettingsPage({super.key});
@@ -10,6 +13,69 @@ class SettingsPage extends StatefulWidget {
 
 class _SettingsPageState extends State<SettingsPage> {
   bool _notificationsEnabled = true;
+  bool _isLoading = false;
+  final FirebaseAuth _auth = FirebaseAuth.instance;
+  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadUserPreferences();
+  }
+
+  Future<void> _loadUserPreferences() async {
+    try {
+      final user = _auth.currentUser;
+      if (user != null) {
+        final userDoc = await _firestore.collection('users').doc(user.uid).get();
+        if (userDoc.exists) {
+          final userData = userDoc.data() as Map<String, dynamic>;
+          setState(() {
+            _notificationsEnabled = userData['notificationsEnabled'] ?? true;
+          });
+        }
+      }
+    } catch (e) {
+      print('Error loading user preferences: $e');
+    }
+  }
+
+  Future<void> _updateNotificationPreference(bool value) async {
+    setState(() {
+      _isLoading = true;
+    });
+
+    try {
+      final user = _auth.currentUser;
+      if (user != null) {
+        await _firestore.collection('users').doc(user.uid).update({
+          'notificationsEnabled': value,
+          'updatedAt': FieldValue.serverTimestamp(),
+        });
+
+        setState(() {
+          _notificationsEnabled = value;
+        });
+      }
+    } catch (e) {
+      print('Error updating notification preferences: $e');
+      // Revert to previous state if update fails
+      setState(() {
+        _notificationsEnabled = !value;
+      });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Failed to update notification preference: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    } finally {
+      setState(() {
+        _isLoading = false;
+      });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -24,7 +90,9 @@ class _SettingsPageState extends State<SettingsPage> {
           onPressed: () => Navigator.of(context).pop(),
         ),
       ),
-      body: SingleChildScrollView(
+      body: _isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : SingleChildScrollView(
         padding: const EdgeInsets.all(16.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -61,9 +129,7 @@ class _SettingsPageState extends State<SettingsPage> {
                     subtitle: 'Receive Reminders to track your expense',
                     value: _notificationsEnabled,
                     onChanged: (value) {
-                      setState(() {
-                        _notificationsEnabled = value;
-                      });
+                      _updateNotificationPreference(value);
                     },
                   ),
                 ],
@@ -230,11 +296,13 @@ class _SettingsPageState extends State<SettingsPage> {
     final TextEditingController newPasswordController = TextEditingController();
     final TextEditingController confirmPasswordController = TextEditingController();
     final GlobalKey<FormState> formKey = GlobalKey<FormState>();
+    bool isLoading = false;
 
     showDialog(
       context: context,
-      builder: (context) =>
-          Dialog(
+      builder: (context) => StatefulBuilder(
+        builder: (context, setState) {
+          return Dialog(
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(16),
             ),
@@ -329,7 +397,7 @@ class _SettingsPageState extends State<SettingsPage> {
                       mainAxisAlignment: MainAxisAlignment.end,
                       children: [
                         TextButton(
-                          onPressed: () => Navigator.pop(context),
+                          onPressed: isLoading ? null : () => Navigator.pop(context),
                           child: const Text('Cancel',
                               style: TextStyle(color: Colors.deepPurple)),
                         ),
@@ -338,20 +406,83 @@ class _SettingsPageState extends State<SettingsPage> {
                           style: ElevatedButton.styleFrom(
                             backgroundColor: Colors.deepPurple,
                           ),
-                          onPressed: () {
+                          onPressed: isLoading
+                              ? null
+                              : () async {
                             if (formKey.currentState!.validate()) {
-                              // Process password change
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
-                                  content: Text(
-                                      'Password updated successfully'),
-                                  backgroundColor: Colors.deepPurple,
-                                ),
-                              );
-                              Navigator.pop(context);
+                              setState(() {
+                                isLoading = true;
+                              });
+
+                              try {
+                                // Get current user
+                                final user = _auth.currentUser;
+                                if (user == null) {
+                                  throw Exception('User not found');
+                                }
+
+                                // Create credential for re-authentication
+                                AuthCredential credential = EmailAuthProvider.credential(
+                                  email: user.email!,
+                                  password: currentPasswordController.text,
+                                );
+
+                                // Re-authenticate user
+                                await user.reauthenticateWithCredential(credential);
+
+                                // Update password
+                                await user.updatePassword(newPasswordController.text);
+
+                                // Update Firestore record
+                                await _firestore.collection('users').doc(user.uid).update({
+                                  'passwordUpdatedAt': FieldValue.serverTimestamp(),
+                                });
+
+                                if (context.mounted) {
+                                  Navigator.pop(context);
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(
+                                      content: Text('Password updated successfully'),
+                                      backgroundColor: Colors.deepPurple,
+                                    ),
+                                  );
+                                }
+                              } catch (e) {
+                                String errorMessage = 'Failed to update password';
+
+                                if (e.toString().contains('wrong-password')) {
+                                  errorMessage = 'Current password is incorrect';
+                                } else if (e.toString().contains('requires-recent-login')) {
+                                  errorMessage = 'Please log out and log back in before changing your password';
+                                }
+
+                                if (context.mounted) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: Text(errorMessage),
+                                      backgroundColor: Colors.red,
+                                    ),
+                                  );
+                                }
+                              } finally {
+                                if (context.mounted) {
+                                  setState(() {
+                                    isLoading = false;
+                                  });
+                                }
+                              }
                             }
                           },
-                          child: const Text('Update Password'),
+                          child: isLoading
+                              ? const SizedBox(
+                            height: 20,
+                            width: 20,
+                            child: CircularProgressIndicator(
+                              color: Colors.white,
+                              strokeWidth: 2,
+                            ),
+                          )
+                              : const Text('Update Password'),
                         ),
                       ],
                     ),
@@ -359,7 +490,9 @@ class _SettingsPageState extends State<SettingsPage> {
                 ),
               ),
             ),
-          ),
+          );
+        },
+      ),
     );
   }
 
@@ -372,201 +505,174 @@ class _SettingsPageState extends State<SettingsPage> {
               borderRadius: BorderRadius.circular(16),
             ),
             child: SingleChildScrollView(
-              child: Padding(
-                padding: const EdgeInsets.all(16.0),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.all(8),
-                          decoration: BoxDecoration(
-                            color: CustomTheme.primaryColor.withOpacity(0.1),
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: const Icon(
-                            Icons.help_outline,
-                            color: CustomTheme.primaryColor,
-                          ),
+              padding: const EdgeInsets.all(16.0),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: CustomTheme.primaryColor.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(8),
                         ),
-                        const SizedBox(width: 12),
-                        const Text(
-                          'Help & Support',
-                          style: TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                            color: CustomTheme.textColor,
-                          ),
+                        child: const Icon(
+                          Icons.help_outline,
+                          color: CustomTheme.primaryColor,
                         ),
-                      ],
-                    ),
-                    const SizedBox(height: 16),
-
-                    // FAQ Section
-                    const Text(
-                      'Frequently Asked Questions',
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.deepPurple,
                       ),
-                    ),
-                    const SizedBox(height: 8),
-
-                    // FAQ Item 1
-                    _buildFaqItem(
-                      question: 'How do I add a new transaction?',
-                      answer: 'To add a new transaction, go to the home screen and tap the "+" button at the bottom. Choose between expense or income, fill in the details, select a category, and tap "Save".',
-                    ),
-
-                    // FAQ Item 2
-                    _buildFaqItem(
-                      question: 'How do I view my spending by category?',
-                      answer: 'You can view your spending by category in the "Budget" section. This shows a breakdown of expenses across different categories with visual charts to help track your spending patterns.',
-                    ),
-
-                    // FAQ Item 3
-                    _buildFaqItem(
-                      question: 'How do budget rules work?',
-                      answer: 'Budget rules help you manage your money using popular financial strategies like the 50/30/20 rule. You can select your preferred budgeting method in the "Survey" section to get personalized financial recommendations.',
-                    ),
-
-                    // FAQ Item 4
-                    _buildFaqItem(
-                      question: 'How do I enable/disable notifications?',
-                      answer: 'You can toggle notifications on or off in the Settings section. When enabled, you\'ll receive daily reminders at 9AM and 7PM to track your expenses.',
-                    ),
-
-                    const SizedBox(height: 16),
-
-                    // Contact Support Section
-                    const Text(
-                      'Need More Help?',
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.deepPurple,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    const Text(
-                      'If you have any questions or issues that aren\'t covered in the FAQ, please contact our support team:',
-                      style: TextStyle(fontSize: 14),
-                    ),
-                    const SizedBox(height: 8),
-
-                    // Support Contact
-                    Container(
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: CustomTheme.primaryColor.withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Row(
-                        children: [
-                          const Icon(Icons.email, color: Colors.deepPurple),
-                          const SizedBox(width: 8),
-                          const Text(
-                            'support@fintrack.com',
-                            style: TextStyle(
-                              color: Colors.deepPurple,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-
-                    const SizedBox(height: 24),
-
-                    // Close Button
-                    Center(
-                      child: ElevatedButton(
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.deepPurple,
-                          minimumSize: const Size(120, 45),
+                      const SizedBox(width: 12),
+                      const Text(
+                        'Help & Support',
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                          color: CustomTheme.textColor,
                         ),
-                        onPressed: () => Navigator.pop(context),
-                        child: const Text('Close'),
                       ),
+                    ],
+                  ),
+                  const SizedBox(height: 24),
+                  const Text(
+                    'Frequently Asked Questions',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
                     ),
-                  ],
-                ),
+                  ),
+                  const SizedBox(height: 12),
+                  _buildFAQItem(
+                    'How do I create a new budget?',
+                    'Go to Budget Settings from the sidebar menu and set up your initial budget and preferred budget rule.',
+                  ),
+                  _buildFAQItem(
+                    'How do I add transactions?',
+                    'Use the + button on the home screen to add income or expenses.',
+                  ),
+                  _buildFAQItem(
+                    'How does the budget rule work?',
+                    'Budget rules help allocate your income into different categories based on popular personal finance methods.',
+                  ),
+                  _buildFAQItem(
+                    'Can I export my data?',
+                    'This feature is coming soon in a future update.',
+                  ),
+                  const SizedBox(height: 16),
+                  const Text(
+                    'Contact Support',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  const Text(
+                    'If you need additional help, contact us at:',
+                    style: TextStyle(fontSize: 14),
+                  ),
+                  const SizedBox(height: 4),
+                  const Text(
+                    'support@fintrack.com',
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: Colors.deepPurple,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: TextButton(
+                      onPressed: () => Navigator.pop(context),
+                      style: TextButton.styleFrom(
+                        foregroundColor: Colors.deepPurple,
+                      ),
+                      child: const Text('Close'),
+                    ),
+                  ),
+                ],
               ),
             ),
           ),
     );
   }
 
-  Widget _buildFaqItem({required String question, required String answer}) {
-    return ExpansionTile(
-      title: Text(
-        question,
-        style: const TextStyle(
-          fontWeight: FontWeight.w600,
-          fontSize: 14,
-        ),
-      ),
-      children: [
-        Padding(
-          padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-          child: Text(
+  Widget _buildFAQItem(String question, String answer) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            question,
+            style: const TextStyle(
+              fontWeight: FontWeight.w500,
+              fontSize: 14,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
             answer,
             style: TextStyle(
               fontSize: 14,
-              color: Colors.grey[700],
+              color: Colors.grey[600],
             ),
           ),
-        ),
-      ],
-      collapsedIconColor: Colors.deepPurple,
-      iconColor: Colors.deepPurple,
-      childrenPadding: EdgeInsets.zero,
+        ],
+      ),
     );
   }
 
   void _showLogoutConfirmation(BuildContext context) {
     showDialog(
       context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
-          ),
-          title: const Row(
-            children: [
-              Icon(Icons.logout, color: Colors.deepPurple),
-              SizedBox(width: 8),
-              Text('Log Out'),
-            ],
-          ),
-          content: const Text('Are you sure you want to log out?'),
-          actions: [
-            TextButton(
-              child: const Text(
-                  'Cancel', style: TextStyle(color: Colors.deepPurple)),
-              onPressed: () {
-                Navigator.of(context).pop();
-              },
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+        ),
+        title: const Text('Logout Confirmation'),
+        content: const Text('Are you sure you want to logout?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text(
+              'Cancel',
+              style: TextStyle(color: Colors.deepPurple),
             ),
-            ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.deepPurple,
-              ),
-              child: const Text('Log Out'),
-              onPressed: () {
-                // Perform logout action
-                Navigator.of(context).pushNamedAndRemoveUntil(
-                  '/',
-                      (route) => false,
-                );
-              },
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.deepPurple,
             ),
-          ],
-        );
-      },
+            onPressed: () async {
+              try {
+                await FirebaseAuth.instance.signOut();
+                if (context.mounted) {
+                  Navigator.pop(context); // Close dialog
+                  Navigator.pushNamedAndRemoveUntil(
+                      context,
+                      '/login',
+                          (route) => false
+                  );
+                }
+              } catch (e) {
+                if (context.mounted) {
+                  Navigator.pop(context); // Close dialog
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('Error logging out: $e'),
+                      backgroundColor: Colors.red,
+                    ),
+                  );
+                }
+              }
+            },
+            child: const Text('Logout'),
+          ),
+        ],
+      ),
     );
   }
 }

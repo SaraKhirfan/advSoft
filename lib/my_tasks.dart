@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'add_to_do.dart';
 import 'custom_theme.dart';
+import 'services/firebase_service.dart';
+import 'services/task_service.dart';
 
 class MyTasks extends StatefulWidget {
   const MyTasks({super.key});
@@ -11,60 +13,11 @@ class MyTasks extends StatefulWidget {
 }
 
 class _MyTasksState extends State<MyTasks> {
-  final List<Map<String, dynamic>> _tasks = [
-    {
-      'id': '1',
-      'title': 'Pay electricity bill',
-      'description': 'Due on 15th of the month',
-      'category': 'Bills',
-      'amount': 85.50,
-      'deadline': DateTime.now().add(const Duration(days: 3)).toIso8601String(),
-      'isCompleted': true,
-      'type': 'finance',
-    },
-    {
-      'id': '2',
-      'title': 'Monthly savings transfer',
-      'description': 'Move 20% to savings account',
-      'category': 'Savings',
-      'amount': 500.00,
-      'deadline': DateTime.now().add(const Duration(days: 1)).toIso8601String(),
-      'isCompleted': true,
-      'type': 'finance',
-    },
-    {
-      'id': '3',
-      'title': 'Grocery shopping',
-      'description': 'Weekly groceries for family',
-      'category': 'Shopping',
-      'amount': 120.00,
-      'deadline': DateTime.now().add(const Duration(days: 2)).toIso8601String(),
-      'isCompleted': true,
-      'type': 'personal',
-    },
-    {
-      'id': '4',
-      'title': 'Call accountant',
-      'description': 'Discuss tax deductions',
-      'category': 'Financial Planning',
-      'amount': 0.00,
-      'deadline': DateTime.now().add(const Duration(days: 5)).toIso8601String(),
-      'isCompleted': false,
-      'type': 'finance',
-    },
-    {
-      'id': '5',
-      'title': 'Morning workout',
-      'description': '30 min cardio session',
-      'category': 'Health',
-      'amount': 0.00,
-      'deadline': DateTime.now().add(const Duration(days: 1)).toIso8601String(),
-      'isCompleted': false,
-      'type': 'personal',
-    },
-  ];
+  final TaskService _taskService = TaskService();
+  List<Map<String, dynamic>> _tasks = [];
+  bool _isLoading = true;
+  String? _errorMessage;
 
-  // Custom Theme Colors
   static const Color _primaryColor = Color(0xFF6C63FF);
   static const Color _secondaryColor = Color(0xFF4A45B1);
   static const Color _backgroundColor = Color(0xFFF8F9FA);
@@ -74,34 +27,138 @@ class _MyTasksState extends State<MyTasks> {
   static const Color _accentColor = Color(0xFF48BB78);
   static const Color _dangerColor = Color(0xFFE53E3E);
 
-  void _addNewTask(Map<String, dynamic> newTask) {
+  @override
+  void initState() {
+    super.initState();
+    _loadTasks();
+  }
+
+  Future<void> _loadTasks() async {
+    if (FirebaseService.currentUserId == null) {
+      if (mounted) {
+        Navigator.of(context).pushReplacementNamed('/login');
+      }
+      return;
+    }
+
     setState(() {
-      _tasks.add({
-        ...newTask,
-        'id': DateTime.now().millisecondsSinceEpoch.toString(),
-        'isCompleted': false,
-      });
+      _isLoading = true;
+      _errorMessage = null;
     });
+
+    try {
+      final tasks = await _taskService.getUserTasks();
+      if (mounted) {
+        setState(() {
+          _tasks = tasks;
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _errorMessage = 'Failed to load tasks: $e';
+          _isLoading = false;
+        });
+      }
+    }
+  }
+
+  void _addNewTask(Map<String, dynamic> newTask) async {
+    setState(() => _isLoading = true);
+
+    try {
+      // Add userId and createdAt
+      newTask['userId'] = FirebaseService.currentUserId;
+      newTask['createdAt'] = DateTime.now().toIso8601String();
+
+      final taskId = await _taskService.addTask(newTask);
+      if (taskId != null) {
+        // Add the ID to the task and add it to the list
+        newTask['id'] = taskId;
+        setState(() {
+          _tasks.add(newTask);
+          _isLoading = false;
+        });
+      } else {
+        setState(() {
+          _errorMessage = 'Failed to add task';
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      setState(() {
+        _errorMessage = 'Error: $e';
+        _isLoading = false;
+      });
+    }
   }
 
   void _navigateToEditPage(Map<String, dynamic> task) {
     Navigator.of(context).push(
       MaterialPageRoute(
         builder: (context) => AddTodo(
-          onTodoAdded: _addNewTask,
+          onTodoAdded: (updatedTask) => _updateTask(task['id'], updatedTask),
           initialTask: task,
         ),
       ),
     );
   }
 
-  void _toggleTaskCompletion(String taskId, bool isCompleted) {
-    setState(() {
-      final index = _tasks.indexWhere((task) => task['id'] == taskId);
-      if (index != -1) {
-        _tasks[index]['isCompleted'] = !isCompleted;
+  void _updateTask(String taskId, Map<String, dynamic> updatedTask) async {
+    setState(() => _isLoading = true);
+
+    try {
+      // Ensure we keep the ID and user ID
+      updatedTask['id'] = taskId;
+      updatedTask['userId'] = FirebaseService.currentUserId;
+
+      final success = await _taskService.updateTask(updatedTask);
+      if (success) {
+        setState(() {
+          // Update the task in the local list
+          final index = _tasks.indexWhere((t) => t['id'] == taskId);
+          if (index != -1) {
+            _tasks[index] = updatedTask;
+          }
+          _isLoading = false;
+        });
+      } else {
+        setState(() {
+          _errorMessage = 'Failed to update task';
+          _isLoading = false;
+        });
       }
-    });
+    } catch (e) {
+      setState(() {
+        _errorMessage = 'Error: $e';
+        _isLoading = false;
+      });
+    }
+  }
+
+  void _toggleTaskCompletion(String taskId, bool isCompleted) async {
+    try {
+      final success = await _taskService.toggleTaskCompletion(taskId, isCompleted);
+      if (success) {
+        setState(() {
+          final index = _tasks.indexWhere((task) => task['id'] == taskId);
+          if (index != -1) {
+            _tasks[index]['isCompleted'] = !isCompleted;
+          }
+        });
+      } else if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Failed to update task status')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error: $e')),
+        );
+      }
+    }
   }
 
   void _deleteTask(String taskId) {
@@ -140,26 +197,47 @@ class _MyTasksState extends State<MyTasks> {
               ),
             ),
             TextButton(
-              onPressed: () {
-                setState(() {
-                  _tasks.removeWhere((task) => task['id'] == taskId);
-                });
+              onPressed: () async {
                 Navigator.of(context).pop();
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    backgroundColor: _primaryColor,
-                    behavior: SnackBarBehavior.floating,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    content: const Text(
-                      "Task deleted",
-                      style: TextStyle(
-                        fontFamily: 'Poppins',
-                      ),
-                    ),
-                  ),
-                );
+                setState(() => _isLoading = true);
+
+                try {
+                  final success = await _taskService.deleteTask(taskId);
+                  if (success) {
+                    setState(() {
+                      _tasks.removeWhere((task) => task['id'] == taskId);
+                      _isLoading = false;
+                    });
+
+                    if (mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          backgroundColor: _primaryColor,
+                          behavior: SnackBarBehavior.floating,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          content: const Text(
+                            "Task deleted",
+                            style: TextStyle(
+                              fontFamily: 'Poppins',
+                            ),
+                          ),
+                        ),
+                      );
+                    }
+                  } else {
+                    setState(() {
+                      _errorMessage = 'Failed to delete task';
+                      _isLoading = false;
+                    });
+                  }
+                } catch (e) {
+                  setState(() {
+                    _errorMessage = 'Error: $e';
+                    _isLoading = false;
+                  });
+                }
               },
               child: const Text(
                 'Delete',
@@ -178,6 +256,93 @@ class _MyTasksState extends State<MyTasks> {
 
   @override
   Widget build(BuildContext context) {
+    if (_isLoading) {
+      return Scaffold(
+        backgroundColor: CustomTheme.backgroundColor,
+        appBar: AppBar(
+          backgroundColor: CustomTheme.primaryColor,
+          title: const Text(
+            'My Tasks',
+            style: TextStyle(
+              fontFamily: 'Poppins',
+              color: Colors.white,
+            ),
+          ),
+          leading: IconButton(
+            icon: const Icon(Icons.arrow_back, color: Colors.white),
+            onPressed: () {
+              Navigator.of(context).pop();
+            },
+          ),
+        ),
+        body: const Center(
+          child: CircularProgressIndicator(
+            color: CustomTheme.primaryColor,
+          ),
+        ),
+      );
+    }
+
+    if (_errorMessage != null) {
+      return Scaffold(
+        backgroundColor: CustomTheme.backgroundColor,
+        appBar: AppBar(
+          backgroundColor: CustomTheme.primaryColor,
+          title: const Text(
+            'My Tasks',
+            style: TextStyle(
+              fontFamily: 'Poppins',
+              color: Colors.white,
+            ),
+          ),
+          leading: IconButton(
+            icon: const Icon(Icons.arrow_back, color: Colors.white),
+            onPressed: () {
+              Navigator.of(context).pop();
+            },
+          ),
+        ),
+        body: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(Icons.error_outline, size: 60, color: Colors.red[300]),
+              const SizedBox(height: 16),
+              Text(
+                'Error Loading Tasks',
+                style: const TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  fontFamily: 'Poppins',
+                ),
+              ),
+              const SizedBox(height: 8),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 40),
+                child: Text(
+                  _errorMessage!,
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    fontSize: 14,
+                    fontFamily: 'Poppins',
+                  ),
+                ),
+              ),
+              const SizedBox(height: 24),
+              ElevatedButton.icon(
+                onPressed: _loadTasks,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: CustomTheme.primaryColor,
+                ),
+                icon: const Icon(Icons.refresh, color: Colors.white),
+                label: const Text('Retry', style: TextStyle(color: Colors.white)),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
     return Scaffold(
       backgroundColor: CustomTheme.backgroundColor,
       appBar: AppBar(
@@ -195,6 +360,13 @@ class _MyTasksState extends State<MyTasks> {
             Navigator.of(context).pop();
           },
         ),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.refresh, color: Colors.white),
+            onPressed: _loadTasks,
+            tooltip: 'Refresh tasks',
+          ),
+        ],
       ),
       body: Column(
         children: [
@@ -260,11 +432,7 @@ class _MyTasksState extends State<MyTasks> {
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Image.asset(
-                  'assets/images/empty_tasks.png',
-                  width: 200,
-                  height: 200,
-                ),
+              Icon(Icons.task_alt_rounded, color: Colors.grey, size: 60,),
                 const SizedBox(height: 16),
                 Text(
                   "No tasks yet",
@@ -393,60 +561,62 @@ class _MyTasksState extends State<MyTasks> {
                             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                             decoration: BoxDecoration(
                               color: priorityColor.withOpacity(0.1),
-                              borderRadius: BorderRadius.circular(20),
+                              borderRadius: BorderRadius.circular(12),
                             ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Icon(
-                                  Icons.circle_rounded,
-                                  size: 8,
-                                  color: priorityColor,
-                                ),
-                                const SizedBox(width: 6),
-                                Text(
-                                  task['priority'],
-                                  style: TextStyle(
-                                    fontSize: 12,
-                                    fontFamily: 'Poppins',
-                                    fontWeight: FontWeight.w500,
-                                    color: priorityColor,
-                                  ),
-                                ),
-                              ],
+                            child: Text(
+                              task['priority'],
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontFamily: 'Poppins',
+                                color: priorityColor,
+                                fontWeight: FontWeight.w500,
+                              ),
                             ),
                           ),
                         ],
-                        // Deadline
+                        // Category Tag
+                        if (task['category'] != null && task['category'].isNotEmpty) ...[
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                            decoration: BoxDecoration(
+                              color: _primaryColor.withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Text(
+                              task['category'],
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontFamily: 'Poppins',
+                                color: _primaryColor,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ),
+                        ],
+                        // Deadline Tag
                         if (deadline != null) ...[
                           Container(
                             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                             decoration: BoxDecoration(
-                              color: deadline.isBefore(DateTime.now())
-                                  ? _dangerColor.withOpacity(0.1)
-                                  : _primaryColor.withOpacity(0.1),
-                              borderRadius: BorderRadius.circular(20),
+                              color: Colors.grey.withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(12),
                             ),
                             child: Row(
                               mainAxisSize: MainAxisSize.min,
                               children: [
                                 Icon(
-                                  Icons.calendar_today_rounded,
+                                  Icons.calendar_today,
                                   size: 12,
-                                  color: deadline.isBefore(DateTime.now())
-                                      ? _dangerColor
-                                      : _primaryColor,
+                                  color: _textSecondaryColor,
                                 ),
-                                const SizedBox(width: 6),
+                                const SizedBox(width: 4),
                                 Text(
                                   DateFormat('MMM dd').format(deadline),
                                   style: TextStyle(
                                     fontSize: 12,
                                     fontFamily: 'Poppins',
+                                    color: _textSecondaryColor,
                                     fontWeight: FontWeight.w500,
-                                    color: deadline.isBefore(DateTime.now())
-                                        ? _dangerColor
-                                        : _primaryColor,
                                   ),
                                 ),
                               ],
@@ -458,54 +628,38 @@ class _MyTasksState extends State<MyTasks> {
                   ],
                 ),
               ),
-              // Delete Button
-              IconButton(
-                icon: const Icon(Icons.more_vert_rounded),
-                color: _textSecondaryColor.withOpacity(0.5),
-                onPressed: () => _showTaskOptions(task['id']),
+              // Right side actions
+              Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  // Delete Button
+                  IconButton(
+                    icon: Icon(
+                      Icons.delete_outline,
+                      color: _textSecondaryColor.withOpacity(0.7),
+                    ),
+                    onPressed: () => _deleteTask(task['id']),
+                    iconSize: 20,
+                  ),
+                  const SizedBox(height: 4),
+                  // Amount if present
+                  if (task['amount'] != null && (task['amount'] as double) > 0) ...[
+                    Text(
+                      'JOD ${task['amount'].toStringAsFixed(2)}',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontFamily: 'Poppins',
+                        color: _textSecondaryColor,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
+                ],
               ),
             ],
           ),
         ),
       ),
-    );
-  }
-
-  void _showTaskOptions(String taskId) {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: _cardColor,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
-      ),
-      builder: (context) {
-        return SafeArea(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              ListTile(
-                leading: const Icon(Icons.edit_rounded),
-                title: const Text('Edit Task'),
-                onTap: () {
-                  Navigator.pop(context);
-                  final task = _tasks.firstWhere((t) => t['id'] == taskId);
-                  _navigateToEditPage(task);
-                },
-              ),
-              ListTile(
-                leading: const Icon(Icons.delete_rounded),
-                title: const Text('Delete Task'),
-                textColor: _dangerColor,
-                iconColor: _dangerColor,
-                onTap: () {
-                  Navigator.pop(context);
-                  _deleteTask(taskId);
-                },
-              ),
-            ],
-          ),
-        );
-      },
     );
   }
 }

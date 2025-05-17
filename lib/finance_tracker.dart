@@ -1,5 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'transaction_result.dart';
+import 'services/budget_service.dart';
+import 'services/transaction_service.dart';
 
 enum TransactionType { expense, income }
 
@@ -29,17 +31,13 @@ enum ExpenseCategory {
 
 class BudgetRule {
   final BudgetRuleType type;
-  double _totalIncome; // Renamed from totalBudget to better reflect its purpose
-
-  // Fixed budget amounts - only changes when income changes
-  final Map<ExpenseCategory, double> _categoryBudgets = {};
+  double _initialBudget; // Renamed from totalIncome to initialBudget
 
   // Percentages for each category based on rule type
   final Map<ExpenseCategory, double> _categoryPercentages = {};
 
-  BudgetRule(this.type, this._totalIncome) {
+  BudgetRule(this.type, this._initialBudget) {
     _initializePercentages();
-    _initializeBudgets();
   }
 
   void _initializePercentages() {
@@ -63,23 +61,34 @@ class BudgetRule {
     }
   }
 
-  void _initializeBudgets() {
-    _categoryPercentages.forEach((category, percentage) {
-      _categoryBudgets[category] = _totalIncome * percentage;
-    });
-  }
+  // Returns the initial budget amount
+  double get totalIncome => _initialBudget;
 
-  // Returns the total income
-  double get totalIncome => _totalIncome;
-
-  // Returns the fixed budget amount for a category
+  // Returns the budget amount for a category based on the initial budget
   double getCategoryBudget(ExpenseCategory category) {
-    return _categoryBudgets[category] ?? 0.0;
+    return _initialBudget * (_categoryPercentages[category] ?? 0.0);
   }
 
   // Returns the percentage allocation for a category
   double getCategoryPercentage(ExpenseCategory category) {
     return _categoryPercentages[category] ?? 0.0;
+  }
+
+  // Get all categories for this budget rule type
+  List<ExpenseCategory> getCategories() {
+    return _categoryPercentages.keys.toList();
+  }
+
+  // Returns the display name for the budget rule
+  String getDisplayName() {
+    switch (type) {
+      case BudgetRuleType.rule_503020:
+        return '50/30/20 Rule';
+      case BudgetRuleType.rule_702010:
+        return '70/20/10 Rule';
+      case BudgetRuleType.rule_303010:
+        return '30/30/30/10 Rule';
+    }
   }
 
   // Returns the human-readable name for a category
@@ -122,69 +131,200 @@ class BudgetRule {
     }
   }
 
-  // Called when new income is added
-  void distributeIncome(double amount) {
-    // Increase total income
-    _totalIncome += amount;
-
-    // Distribute the new income to each category based on percentages
-    _categoryPercentages.forEach((category, percentage) {
-      // Add to the budget for this category
-      _categoryBudgets[category] = (_categoryBudgets[category] ?? 0.0) + (amount * percentage);
-    });
+  void updateInitialBudget(double newAmount) {
+    _initialBudget = newAmount;
   }
 
-  // Check if there's enough available budget (budget - spent) for a transaction
   bool canDeductFromCategory(ExpenseCategory category, double amount, double currentSpent) {
-    double budget = _categoryBudgets[category] ?? 0.0;
+    double budget = getCategoryBudget(category);
     double available = budget - currentSpent;
     return available >= amount;
   }
 }
 
 class Transaction {
+  final String? id;
   final TransactionType type;
   final String category;
   final double amount;
   final String description;
   final DateTime date;
   final ExpenseCategory? expenseCategory;
+  final DateTime timestamp;
 
   Transaction({
+    this.id,
     required this.type,
     required this.category,
     required this.amount,
     required this.description,
     this.expenseCategory,
-    DateTime? date, required DateTime timestamp,
-  }) : date = date ?? DateTime.now();
+    DateTime? date,
+    DateTime? timestamp,
+  }) :
+        this.date = date ?? DateTime.now(),
+        this.timestamp = timestamp ?? DateTime.now();
 }
 
+// Update the FinanceTracker class
 class FinanceTracker with ChangeNotifier {
   double _totalBalance = 0.0;
   final List<Transaction> _transactions = [];
   BudgetRule? _budgetRule;
 
+  // Add Firebase service instances
+  final BudgetService _budgetService = BudgetService();
+  final TransactionService _transactionService = TransactionService();
+
   double get totalBalance => _totalBalance;
   List<Transaction> get transactions => List.unmodifiable(_transactions);
   BudgetRule? get budgetRule => _budgetRule;
 
-  // Set initial budget and create budget rule
-  void setInitialBudget(double amount, BudgetRuleType ruleType) {
-    _totalBalance = amount;
+  Future<void> initializeFromFirebase() async {
+    try {
+      // Load budget rule
+      final budgetRule = await _budgetService.getBudgetRule();
+      if (budgetRule != null) {
+        _budgetRule = budgetRule;
+      }
+
+      // Load transactions
+      final transactions = await _transactionService.getUserTransactions();
+      _transactions.clear();
+      _transactions.addAll(transactions);
+
+      // Calculate current balance
+      await _recalculateBalance();
+
+      notifyListeners();
+    } catch (e) {
+      print('Error initializing from Firebase: $e');
+      // Handle errors
+      rethrow;
+    }
+  }
+
+  Future<void> _recalculateBalance() async {
+    if (_budgetRule == null) return;
+
+    // Get initial budget
+    double initialBudget = _budgetRule!.totalIncome;
+
+    // Calculate total income and expenses from transactions
+    double totalIncome = 0.0;
+    double totalExpenses = 0.0;
+
+    for (var transaction in _transactions) {
+      if (transaction.type == TransactionType.income) {
+        totalIncome += transaction.amount;
+      } else {
+        totalExpenses += transaction.amount;
+      }
+    }
+
+    // Set the total balance
+    _totalBalance = initialBudget + totalIncome - totalExpenses;
+  }
+
+  Future<bool> removeTransaction(String transactionId) async {
+    try {
+      // First get the transaction to know its type and amount
+      final transaction = _transactions.firstWhere(
+            (t) => t.id == transactionId,
+        orElse: () => throw Exception('Transaction not found'),
+      );
+
+      // Delete from Firestore
+      bool success = await _transactionService.deleteTransaction(transactionId);
+      if (!success) return false;
+
+      // Remove from local list
+      _transactions.removeWhere((t) => t.id == transactionId);
+
+      // Update balance based on transaction type
+      if (transaction.type == TransactionType.income) {
+        _totalBalance -= transaction.amount;
+      } else {
+        _totalBalance += transaction.amount;
+      }
+
+      notifyListeners();
+      return true;
+    } catch (e) {
+      print('Error removing transaction: $e');
+      return false;
+    }
+  }
+
+  // Set transactions from Firebase (called from HomePage) - Updated
+  void setTransactions(List<Transaction> transactions) {
+    _transactions.clear();
+    _transactions.addAll(transactions);
+    _recalculateBalance(); // Recalculate balance when transactions change
+    notifyListeners();
+  }
+
+  // Set budget rule (called from HomePage) - Updated
+  void setBudgetRule(BudgetRule budgetRule) {
+    _budgetRule = budgetRule;
+    _recalculateBalance(); // Recalculate balance when budget rule changes
+    notifyListeners();
+  }
+
+  // Start listening to transaction changes - Updated
+  void startTransactionListener() {
+    _transactionService.streamUserTransactions().listen((transactions) {
+      _transactions.clear();
+      _transactions.addAll(transactions);
+      _recalculateBalance(); // Recalculate balance when transactions change
+      notifyListeners();
+    }, onError: (error) {
+      print('Error in transaction stream: $error');
+    });
+  }
+
+  // Set initial budget and create budget rule - Updated
+  Future<void> setInitialBudget(double amount, BudgetRuleType ruleType) async {
+    // Save to Firebase
+    await _budgetService.saveBudgetRule(amount, ruleType);
+
+    // Update local state
     _budgetRule = BudgetRule(ruleType, amount);
+    _totalBalance = amount;
     _transactions.clear();
     notifyListeners();
   }
 
-  TransactionResult addTransaction(Transaction transaction) {
+  // Add transaction - Updated
+  Future<TransactionResult> addTransaction(Transaction transaction) async {
     if (_budgetRule == null) return TransactionResult(success: false);
 
     if (transaction.type == TransactionType.income) {
-      // Handle income transaction
-      _budgetRule!.distributeIncome(transaction.amount);
+      // Save to Firebase first
+      String? transactionId = await _transactionService.addTransaction(transaction);
+      if (transactionId == null) {
+        return TransactionResult(
+            success: false,
+            showAlert: true,
+            alertMessage: "Failed to save transaction to database."
+        );
+      }
+
+      // Create a new transaction with the ID
+      final newTransaction = Transaction(
+        id: transactionId,
+        type: transaction.type,
+        category: transaction.category,
+        amount: transaction.amount,
+        description: transaction.description,
+        expenseCategory: transaction.expenseCategory,
+        date: transaction.date,
+        timestamp: transaction.timestamp,
+      );
+
+      // Add to local state
       _totalBalance += transaction.amount;
-      _transactions.insert(0, transaction);
+      _transactions.insert(0, newTransaction);
       notifyListeners();
       return TransactionResult(success: true);
     } else {
@@ -196,9 +336,11 @@ class FinanceTracker with ChangeNotifier {
       // Get current spent amount for this category
       double currentSpent = getTotalExpensesByCategory(transaction.expenseCategory!);
 
+      // Get category budget based on current total
+      double categoryBudget = _budgetRule!.getCategoryBudget(transaction.expenseCategory!);
+
       // Check if we have enough in the category before allowing the transaction
-      if (!_budgetRule!.canDeductFromCategory(
-          transaction.expenseCategory!, transaction.amount, currentSpent)) {
+      if (currentSpent + transaction.amount > categoryBudget) {
         String categoryName = _budgetRule!.getCategoryName(transaction.expenseCategory!);
         return TransactionResult(
           success: false,
@@ -208,14 +350,35 @@ class FinanceTracker with ChangeNotifier {
         );
       }
 
-      // Calculate usage percentage after this transaction
-      double budget = _budgetRule!.getCategoryBudget(transaction.expenseCategory!);
-      double newSpent = currentSpent + transaction.amount;
-      double newPercentage = (newSpent / budget) * 100;
+      // Save to Firebase first
+      String? transactionId = await _transactionService.addTransaction(transaction);
+      if (transactionId == null) {
+        return TransactionResult(
+            success: false,
+            showAlert: true,
+            alertMessage: "Failed to save transaction to database."
+        );
+      }
 
-      // Add the transaction - no deduction from budget, just add to transactions list
+      // Create a new transaction with the ID
+      final newTransaction = Transaction(
+        id: transactionId,
+        type: transaction.type,
+        category: transaction.category,
+        amount: transaction.amount,
+        description: transaction.description,
+        expenseCategory: transaction.expenseCategory,
+        date: transaction.date,
+        timestamp: transaction.timestamp,
+      );
+
+      // Calculate usage percentage after this transaction
+      double newSpent = currentSpent + transaction.amount;
+      double newPercentage = (newSpent / categoryBudget) * 100;
+
+      // Add the transaction to local state
       _totalBalance -= transaction.amount;
-      _transactions.insert(0, transaction);
+      _transactions.insert(0, newTransaction);
       notifyListeners();
 
       // Determine if any alerts should be shown based on budget usage
@@ -240,17 +403,22 @@ class FinanceTracker with ChangeNotifier {
     }
   }
 
-  // Calculate total income
-  double get totalIncome => _transactions
+  // Get the current balance - Updated
+  double getCurrentBalance() {
+    return _totalBalance;
+  }
+
+  // Calculate total income - Unchanged
+  double getTotalIncome() => _transactions
       .where((t) => t.type == TransactionType.income)
       .fold(0, (sum, t) => sum + t.amount);
 
-  // Calculate total expenses
-  double get totalExpense => _transactions
+  // Calculate total expenses - Unchanged
+  double getTotalExpenses() => _transactions
       .where((t) => t.type == TransactionType.expense)
       .fold(0, (sum, t) => sum + t.amount);
 
-  // Get the total spent amount for a specific category
+  // Get the total spent amount for a specific category - Unchanged
   double getTotalExpensesByCategory(ExpenseCategory category) {
     return _transactions
         .where((t) => t.type == TransactionType.expense &&
@@ -258,11 +426,14 @@ class FinanceTracker with ChangeNotifier {
         .fold(0, (sum, t) => sum + t.amount);
   }
 
-  // Get the available amount for a category (budget - spent)
+  // Get the available amount for a category (budget - spent) - Updated
   double getAvailableAmountForCategory(ExpenseCategory category) {
-    double budget = _budgetRule?.getCategoryBudget(category) ?? 0.0;
+    if (_budgetRule == null) return 0.0;
+
+    // Get the current category budget based on current total balance
+    double categoryBudget = _budgetRule!.getCategoryBudget(category);
     double spent = getTotalExpensesByCategory(category);
-    return budget - spent;
+    return categoryBudget - spent;
   }
 
   // Map transaction category to expense category

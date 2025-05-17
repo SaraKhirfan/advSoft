@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'custom_theme.dart';
+import 'services/firebase_service.dart';
 
 class AddTodo extends StatefulWidget {
   final Function(Map<String, dynamic>) onTodoAdded;
@@ -24,6 +25,8 @@ class _AddTodoState extends State<AddTodo> {
   final TextEditingController _amountController = TextEditingController();
   String _priority = "High";
   DateTime? _deadline;
+  bool _isLoading = false;
+  String? _errorMessage;
 
   @override
   void initState() {
@@ -94,8 +97,75 @@ class _AddTodoState extends State<AddTodo> {
     );
   }
 
+  void _saveTask() {
+    if (_formKey.currentState!.validate()) {
+      if (FirebaseService.currentUserId == null) {
+        setState(() {
+          _errorMessage = 'You must be logged in to add tasks';
+        });
+        return;
+      }
+
+      setState(() {
+        _isLoading = true;
+        _errorMessage = null;
+      });
+
+      try {
+        // Prepare task data
+        final newTask = {
+          'id': widget.initialTask?['id'],
+          'title': _titleController.text,
+          'description': _descriptionController.text,
+          'category': _categoryController.text.isEmpty ? 'Uncategorized' : _categoryController.text,
+          'amount': double.tryParse(_amountController.text) ?? 0.0,
+          'deadline': _deadline!.toIso8601String(),
+          'priority': _priority,
+          'isCompleted': widget.initialTask?['isCompleted'] ?? false,
+          'type': widget.initialTask?['type'] ?? 'finance', // Maintain existing type
+          'userId': FirebaseService.currentUserId,
+          'createdAt': DateTime.now().toIso8601String(),
+        };
+
+        // Pass to parent handler
+        widget.onTodoAdded(newTask);
+        Navigator.pop(context);
+      } catch (e) {
+        setState(() {
+          _errorMessage = 'Error: $e';
+          _isLoading = false;
+        });
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
+    if (_isLoading) {
+      return Scaffold(
+        backgroundColor: CustomTheme.backgroundColor,
+        appBar: AppBar(
+          backgroundColor: CustomTheme.primaryColor,
+          title: Text(
+            widget.initialTask != null ? 'Edit Task' : 'Add New Task',
+            style: const TextStyle(
+              fontFamily: 'Poppins',
+              color: Colors.white,
+            ),
+          ),
+          leading: IconButton(
+            icon: const Icon(Icons.arrow_back, color: Colors.white),
+            onPressed: () => Navigator.pop(context),
+          ),
+        ),
+        body: const Center(
+          child: CircularProgressIndicator(
+            color: CustomTheme.primaryColor,
+          ),
+        ),
+      );
+    }
+
     return Scaffold(
       backgroundColor: CustomTheme.backgroundColor,
       appBar: AppBar(
@@ -230,22 +300,7 @@ class _AddTodoState extends State<AddTodo> {
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton(
-                  onPressed: () {
-                    if (_formKey.currentState!.validate()) {
-                      final newTask = {
-                        'title': _titleController.text,
-                        'description': _descriptionController.text,
-                        'category': _categoryController.text,
-                        'amount': double.tryParse(_amountController.text) ?? 0.0,
-                        'deadline': _deadline!.toIso8601String(),
-                        'priority': _priority,
-                        'isCompleted': widget.initialTask?['isCompleted'] ?? false,
-                        'type': widget.initialTask?['type'] ?? 'finance', // Maintain existing type
-                      };
-                      widget.onTodoAdded(newTask);
-                      Navigator.pop(context);
-                    }
-                  },
+                  onPressed: _saveTask,
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.deepPurple,
                     padding: const EdgeInsets.symmetric(vertical: 16),
@@ -263,6 +318,20 @@ class _AddTodoState extends State<AddTodo> {
                   ),
                 ),
               ),
+
+              // Error message
+              if (_errorMessage != null)
+                Padding(
+                  padding: const EdgeInsets.only(top: 16),
+                  child: Text(
+                    _errorMessage!,
+                    style: const TextStyle(
+                      color: Colors.red,
+                      fontFamily: 'Poppins',
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                ),
             ],
           ),
         ),
