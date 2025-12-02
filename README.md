@@ -77,19 +77,6 @@ This structure makes the system easy to maintain and expand.
 
 ---
 
-## Folder Structure (Simplified)
-
-```
-lib/
- ├── models/
- ├── services/
- ├── providers/
- ├── pages/
- └── widgets/
-```
-
----
-
 ## Main Implementation Highlights
 
 ### Authentication
@@ -157,3 +144,4 @@ Test cases cover:
 * Exporting data (CSV/PDF)
 * Multi-currency support
 * Automated insights
+
