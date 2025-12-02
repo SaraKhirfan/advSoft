@@ -5,7 +5,7 @@ It was developed as part of the **Advanced Software Engineering** course at the 
 
 ---
 
-## Features
+## ✨ Features
 
 ### User & Security
 
@@ -52,7 +52,7 @@ It was developed as part of the **Advanced Software Engineering** course at the 
 
 ---
 
-## Tech Stack
+## 💻 Tech Stack
 
 | Component        | Technology                                     |
 | ---------------- | ---------------------------------------------- |
@@ -64,7 +64,7 @@ It was developed as part of the **Advanced Software Engineering** course at the 
 
 ---
 
-## Architecture Overview
+##🛠️Architecture Overview
 
 The system is divided into four main subsystems:
 
@@ -77,7 +77,7 @@ This structure makes the system easy to maintain and expand.
 
 ---
 
-## Main Implementation Highlights
+## 🎯Main Implementation Highlights
 
 ### Authentication
 
@@ -111,7 +111,7 @@ This structure makes the system easy to maintain and expand.
 
 ---
 
-## Testing
+## ⚙️Testing
 
 Test cases cover:
 
@@ -128,7 +128,7 @@ Test cases cover:
 
 ---
 
-## Development Process
+## 📚Development Process
 
 * Agile approach
 * Weekly meetings
@@ -137,11 +137,12 @@ Test cases cover:
 
 ---
 
-## Future Enhancements
+## ⌛Future Enhancements
 
 * Bank account integration
 * Advanced analytical reports
 * Exporting data (CSV/PDF)
 * Multi-currency support
 * Automated insights
+
 
