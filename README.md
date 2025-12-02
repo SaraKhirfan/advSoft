@@ -64,7 +64,7 @@ It was developed as part of the **Advanced Software Engineering** course at the 
 
 ---
 
-##🛠️Architecture Overview
+## 🛠️Architecture Overview
 
 The system is divided into four main subsystems:
 
@@ -144,5 +144,6 @@ Test cases cover:
 * Exporting data (CSV/PDF)
 * Multi-currency support
 * Automated insights
+
 
 
